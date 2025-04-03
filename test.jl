@@ -11,6 +11,8 @@ using Dates
 using Folds
 
 
+
+
 #=g, probs, edges = AntSafestRoute.read_graph_and_failure(
     "../interroute_j.gml",
     "interroute_v2",
@@ -33,28 +35,51 @@ println("Alg_tester_cli started on $(Dates.now())")
 fst((x, _)) = x
 snd((_, y)) = y
 
+function descartes_mult_configs(xs, ys)
+    [("$(fst(x))_$(fst(y))", snd(x), snd(y)) for x in xs, y in ys]
+end
+
 function toString(x)
     "$(x)"
 end
 
-numberOfRuns = 1
+numberOfRuns = 5
 
-param_tuning_α = [1]
-param_tuning_β = [1.5]
-param_tuning_nr_ants = [25]
-param_tuning_ρ = [0.3]
-param_tuning_ϵ = [0.1]
-param_tuning_nr_gen = [1]
-param_tuning_starting_pheromone = [1]
+aco_param_tuning_α = [1]
+aco_param_tuning_β = [1.5]
+aco_param_tuning_nr_ants = [25]
+aco_param_tuning_ρ = [0.3]
+aco_param_tuning_ϵ = [0.1]
+aco_param_tuning_nr_gen = [1]#[100]
+aco_param_tuning_starting_pheromone = [1]
 
-configurations = [
+ga_param_tuning_nr_gen = [1]
+ga_param_tuning_n_p = [50]
+ga_param_tuning_mut_rate = [0.1]
+ga_param_tuning_cro_rate = [0.9]
+ga_param_tuning_elit = [0.5]
+ga_param_tuning_crossover = [crossover_roulette]
+ga_param_tuning_mutation = [mutate]
+ga_param_tuning_fitness = [calc_fitness_sets] #calc_fitness_paths,
+
+
+
+configurations_ACO = [
     # conf_name,                        n_p, mut, cro, elit, crossoverAlg, mutationAlg,       meme,  log,  iter 
     # Baselines
     ("ACO_DEFAULT", ACOSettings(α, β, nr_ants, ρ, ϵ, nr_gen, s_pheromone)) for
-    α in param_tuning_α, β in param_tuning_β, nr_ants in param_tuning_nr_ants,
-    ρ in param_tuning_ρ, ϵ in param_tuning_ϵ, nr_gen in param_tuning_nr_gen,
-    s_pheromone in param_tuning_starting_pheromone
+    α in aco_param_tuning_α, β in aco_param_tuning_β, nr_ants in aco_param_tuning_nr_ants,
+    ρ in aco_param_tuning_ρ, ϵ in aco_param_tuning_ϵ, nr_gen in aco_param_tuning_nr_gen,
+    s_pheromone in aco_param_tuning_starting_pheromone
 ]
+
+configurations_GA = [
+    ("GA_SIMPLE_MORE", GeneticSettings(popSize, mutRate, crossRate, elitRate, crossFunc, mutFunc, nrIter, calcFit)) for
+    popSize in ga_param_tuning_n_p, mutRate in ga_param_tuning_mut_rate, crossRate in ga_param_tuning_cro_rate,
+    elitRate in ga_param_tuning_elit, nrIter in ga_param_tuning_nr_gen, crossFunc in ga_param_tuning_crossover, mutFunc in ga_param_tuning_mutation, calcFit in ga_param_tuning_fitness
+]
+
+configurations = descartes_mult_configs(configurations_ACO, configurations_GA)
 
 if !isdir("./logs")
     mkdir("./logs")
@@ -63,7 +88,7 @@ if !isdir("./results")
     mkdir("./results")
 end
 
-for (ii, (conf_name, acoS)) in enumerate(configurations)
+for (ii, (conf_name, acoS, gaS)) in enumerate(configurations)
     println("$(conf_name) started on $(Dates.now())")
 
     date_of_start = Dates.today()
@@ -79,6 +104,7 @@ for (ii, (conf_name, acoS)) in enumerate(configurations)
 
     open("results/$(res_folder_name)/params.txt", "a") do io
         println(io, "acoS=", acoS)
+        println(io, "gaS=", gaS)
     end
 
     for (i, folder) in enumerate(folders)
@@ -137,6 +163,7 @@ for (ii, (conf_name, acoS)) in enumerate(configurations)
         results2 = Folds.map(
             x -> SafestRoutePair.safest_route_pairs_all_ga(
                 gcfp;
+                gaS=gaS,
                 logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_$(x).csv" : "")
             ),
             1:numberOfRuns,
@@ -150,7 +177,7 @@ for (ii, (conf_name, acoS)) in enumerate(configurations)
             rename!(local_result_df, :x => "ga$(i)")
         end
 
-        tmpMat = Matrix(local_result_df[:, 2:(numberOfRuns+1)])
+        tmpMat = Matrix(local_result_df[:, (numberOfRuns+6):end])
         means = mean(tmpMat, dims=2)
         stds = std(tmpMat, dims=2)
         mins = minimum(tmpMat, dims=2)
@@ -162,7 +189,10 @@ for (ii, (conf_name, acoS)) in enumerate(configurations)
         local_result_df[!, :min_ga] = mins[:]
         local_result_df[!, :max_ga] = maxs[:]
 
+        result3 = SafestRoutePair.safest_route_pairs_all_naive(gcfp)
 
+        local_route_df[!, :naive] = toString.(fst.(snd.(result3)))
+        local_result_df[!, :naive] = snd.(snd.(result3))
 
         CSV.write(
             "results/$(res_folder_name)/run_routes_$(folder).csv",

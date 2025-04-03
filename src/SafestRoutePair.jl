@@ -3,6 +3,7 @@ module SafestRoutePair
 include("reader.jl")
 include("aco.jl")
 include("ga.jl")
+include("naive_complex.jl")
 
 using Graphs
 using Folds
@@ -10,7 +11,10 @@ using .ACO
 import .ACO: ACOSettings, AcoRunSettings, ACO_preprocessing, calc_fitness
 
 using .GA
-import .GA: GeneticSettings, GaRunSettings, genetic, mutate, crossover_roulette
+import .GA: GeneticSettings, GaRunSettings, genetic, mutate, crossover_roulette, calc_fitness_paths, calc_fitness_sets
+
+using .NaiveComplex
+import .NaiveComplex: naive_complex, NaiveGreedySettings
 
 using .GraphReader
 import .GraphReader: read_graph_and_failure
@@ -20,7 +24,8 @@ export read_graph_and_failure
 export ACO_preprocessing, calc_fitness
 export ACOSettings, AcoRunSettings
 
-export GeneticSettings, GaRunSettings, genetic, mutate, crossover_roulette
+export GeneticSettings, GaRunSettings, genetic, mutate, crossover_roulette, calc_fitness_paths, calc_fitness_sets
+
 
 
 """
@@ -162,11 +167,46 @@ Tuple{Vector{Int64}, Float64}
 function safest_route_pair_ga(gcfp::GraphWithFPandCFP, from, to, gaS::GeneticSettings; logging_file="", use_folds=true)
 
     runS1 = SafestRoutePair.GaRunSettings(gcfp.g, gcfp.fps, gcfp.fp_edges, gcfp.cfps, gcfp.cfp_edges, from, to)
-    chromosomes = [[rand([0, 1, 2]) for _ in 1:length(gcfp.fps)] for _ in 1:gaS.populationSize]
-    @show from, to
-    res1, _logs = SafestRoutePair.genetic(runS1, gaS, chromosomes; logging_file=logging_file, use_folds=use_folds)
+    chromosomes = [[length(es) == 1 ? rand([0, 1, 2]) : 0 for es in gcfp.fp_edges] for _ in 1:gaS.populationSize]
 
+    @time res1, _logs = SafestRoutePair.genetic(runS1, gaS, chromosomes; logging_file=logging_file, use_folds=use_folds)
+
+    #@show res1
     val1 = calc_availability(res1, gcfp.fps, gcfp.fp_edges)
+    #@show val1
+
+    (res1, val1)
+end
+
+"""
+
+Runs the naive algorithm to find the safest route pair between `from` and `to` in graph `gcfp`.
+
+Parameters (most types are not specified, are only listed for reference)
+
+```
+gcfp  ::GraphWithFPandCFP - graph and probabilities
+from  ::Int64 - the index of the starting node (julia indexes from 1)
+to    ::Int64 - the index of the target node (julia indexes from 1)
+```
+
+Return value:
+```
+Tuple{Vector{Int64}, Float64}
+(
+  res ::Tuple{Vector{Int64}, Vector{Int64}} - two list of nodes describing the two paths
+  val ::Float64 - the negative logarithm of the breakage probability (to convert it back do: 1 - exp(-val))
+)
+```
+"""
+function safest_route_pair_naive(gcfp::GraphWithFPandCFP, from, to)
+
+    res1 = SafestRoutePair.naive_complex(adjacency_matrix(gcfp.g), NaiveGreedySettings(from, to, gcfp.cfps, gcfp.cfp_edges))
+
+
+    #@show res1
+    val1 = calc_availability(res1, gcfp.fps, gcfp.fp_edges)
+    #@show val1
 
     (res1, val1)
 end
@@ -176,10 +216,10 @@ end
 # Extracted in order to prevent unnecessary code duplication
 function get_node_pairs(g, undirected::Bool)
     if undirected
-        return collect(Iterators.flatten([[(i, j) for j = (i+1):nv(g)] for i = 1:nv(g)]))
+        return collect(Iterators.flatten([[(i, j) for j = (i+1):nv(g)] for i = 1:nv(g)]))[1:25]
     end
 
-    collect(filter(((x, y),) -> x != y, Iterators.flatten([[(i, j) for j = 1:nv(g)] for i = 1:nv(g)])))[1:1]
+    collect(filter(((x, y),) -> x != y, Iterators.flatten([[(i, j) for j = 1:nv(g)] for i = 1:nv(g)])))
 end
 
 # Extracted in order to prevent unnecessary code duplication
@@ -217,7 +257,7 @@ Vector{Tuple{(Vector{Int64}, Float64})}}
 """
 function safest_route_pairs_all_aco(
     gcfp::GraphWithFPandCFP;
-    acoS::ACOSettings=ACOSettings(1, 0.5, 100, 0.3, 0.1, 200, 1),
+    acoS::ACOSettings=ACOSettings(10, 0.5, 100, 0.3, 0.1, 200, 10),
     logging_file="",
     use_folds=true,
     undirected=true,
@@ -227,7 +267,7 @@ function safest_route_pairs_all_aco(
 
 
     run_algorithm(
-        ((x, y),) -> ((x, y), safest_route_pair_aco(gcfp, x, y, acoS; logging_file=(logging_file != "" ? "$(logging_file)_$(x)_$(y).csv" : ""))),
+        ((x, y),) -> ((x, y), safest_route_pair_aco(gcfp, x, y, acoS; logging_file=(logging_file != "" ? "$(logging_file)_$(x)_$(y).csv" : ""), use_folds=use_folds)),
         node_pairs,
         use_folds
     )
@@ -258,7 +298,7 @@ Vector{Tuple{(Vector{Int64}, Float64})}}
 """
 function safest_route_pairs_all_ga(
     gcfp::GraphWithFPandCFP;
-    gaS::GeneticSettings=GeneticSettings(10, 0.1, 0.9, 0.5, crossover_roulette, mutate, 1),
+    gaS::GeneticSettings=GeneticSettings(25, 0.1, 0.9, 0.5, crossover_roulette, mutate, 100),
     logging_file="",
     use_folds=false,
     undirected=true,
@@ -268,7 +308,45 @@ function safest_route_pairs_all_ga(
 
 
     run_algorithm(
-        ((x, y),) -> ((x, y), safest_route_pair_ga(gcfp, x, y, gaS; logging_file=(logging_file != "" ? "$(logging_file)_$(x)_$(y).csv" : ""))),
+        ((x, y),) -> ((x, y), safest_route_pair_ga(gcfp, x, y, gaS; logging_file=(logging_file != "" ? "$(logging_file)_$(x)_$(y).csv" : ""), use_folds=use_folds)),
+        node_pairs,
+        use_folds
+    )
+end
+
+"""
+Runs the genetic algorithm for all node pairs (by default undirected only, but configurable), where the nodes are distinct.
+
+Parameters (most types are not specified, are only listed for reference)
+```
+gcfp  ::GraphWithFPandCFP - graph and probabilities
+use_folds ::Bool - (Optional) should the algorithm use the Folds package to parallelize some parts (by default: true)
+undirected :: Bool - (Optional) should the algorithm only look in one direction when searching a path between two nodes (by default: true)
+
+```
+
+Return value:
+
+Pairs of routes and the negative logarithms of breakage probabilities.
+```
+Vector{Tuple{(Vector{Int64}, Float64})}}
+[(
+  res ::Tuple{Vector{Int64}, Vector{Int64}} - two list of nodes describing the two paths
+  val ::Float64 - the negative logarithm of the breakage probability (to convert it back do: 1 - exp(-val))
+)]
+```
+"""
+function safest_route_pairs_all_naive(
+    gcfp::GraphWithFPandCFP;
+    use_folds=false,
+    undirected=true,
+)
+
+    node_pairs = get_node_pairs(gcfp.g, undirected)
+
+
+    run_algorithm(
+        ((x, y),) -> ((x, y), safest_route_pair_naive(gcfp, x, y)),
         node_pairs,
         use_folds
     )

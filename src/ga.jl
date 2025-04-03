@@ -13,6 +13,7 @@ struct GeneticSettings
     crossoverAlg::Any
     mutationAlg::Any
     numberOfIterations::Any
+    fitnessCalc::Any
 end
 
 struct GaRunSettings
@@ -81,7 +82,10 @@ end
 # Basic mutation that permutates a value in the 0->1->2->0 order on one of the chromosomes
 function mutate(partition)
     to_mutate = rand(1:length(partition))
-    partition[to_mutate] = (partition[to_mutate] + 1) % 3
+    partition2 = deepcopy(partition)
+    partition2[to_mutate] = (partition[to_mutate] + 1) % 3
+
+    partition2
 end
 
 # Basic crossover that chooses each cromosome randomly from one of the parents
@@ -123,8 +127,6 @@ function calc_availability((path1, path2), fps::Vector{Real}, fp_edges::Vector{V
     path_a = calc_edges_from_nodes(path1)
     path_b = calc_edges_from_nodes(path2)
 
-    @show path_a
-    @show path_b
 
     only_path_a = 0
     only_path_b = 0
@@ -149,21 +151,64 @@ function calc_availability((path1, path2), fps::Vector{Real}, fp_edges::Vector{V
     -log(res)
 end
 
-function calc_fitness(solution, g_indep, runS::GaRunSettings)
+
+function calc_fitness_paths(solution, g_indep, runS::GaRunSettings) # _complex
 
     paths = partition_to_paths(g_indep, solution, runS.fp_edges, runS.source, runS.target)
 
-    @show paths
 
     if fst(paths) == [] && snd(paths) == []
-        return -2000
+        return -20
     elseif fst(paths) == []
-        return -1000
+        return -10
     elseif snd(paths) == []
-        return -1000
+        return -10
     end
 
     calc_availability(paths, runS.fps, runS.fp_edges)
+end
+
+
+function find_id_of_single_edge(edge, runS::GaRunSettings)
+    for (i, edges) in enumerate(runS.fp_edges)
+        if length(edges) == 1 && (edge == edges[1] || (snd(edge), fst(edge)) == edges[1])
+            return i
+        end
+    end
+
+    return -1
+end
+
+# Alternative fitness function: sum of FP-s from both sets should be maximal
+function calc_fitness_sets(solution, g_indep, runS::GaRunSettings)  #_simple
+
+    paths = partition_to_paths(g_indep, solution, runS.fp_edges, runS.source, runS.target)
+
+
+    if fst(paths) == [] && snd(paths) == []
+        return -20
+    elseif fst(paths) == []
+        return -10
+    elseif snd(paths) == []
+        return -10
+    end
+
+    solution2 = deepcopy(solution)
+    edge_comps = [[find_id_of_single_edge(edge, runS) for edge in edges] for edges in runS.fp_edges]
+
+    for (i, (sol, comp)) in enumerate(zip(solution, edge_comps))
+        l = length(comp)
+        if l > 1 && sol == 0
+            s = sum([solution[j] for j in comp])
+            if s == l
+                solution2[i] = 1
+            elseif s == 2 * l
+                solution2[i] = 2
+            end
+        end
+    end
+
+    sum(runS.fps[solution2.!=0])
 end
 
 function weighted_graph_from_mat(mat)
@@ -180,7 +225,6 @@ function weighted_graph_from_mat(mat)
 end
 
 
-# Something wrong here
 function create_indep_graph(g, cfps::Vector{Real}, cfp_edges::Vector{Vector{Tuple{Integer,Integer}}})
     edges_mat = adjacency_matrix(g)
     hits = ones(size(edges_mat)) .* 0.0000001
@@ -201,9 +245,9 @@ function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging
     # Initializing values and functions for later use
     g_indep = create_indep_graph(runS.g, runS.cfps, runS.cfp_edges)
 
-    calcFitness(x) = calc_fitness(x, g_indep, runS)
+    calcFitness(x) = gaS.fitnessCalc(x, g_indep, runS)
     runMutation(x) = rand() < gaS.mutationRate ? gaS.mutationAlg(x) : x
-    chromosomes = deepcopy(chromosomes)
+    chromosomes::Vector{Vector{Int64}} = deepcopy(chromosomes)
     n_c = length(chromosomes)
 
     # Initializing global maximum as one of the given chromosome
@@ -219,10 +263,11 @@ function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging
     else
         fitness = collect(map(calcFitness, chromosomes))
     end
-    @show fitness
 
+    #@show runS
     for i = 1:gaS.numberOfIterations
-
+        #@show maxVal, maxVec
+        #@show chromosomes
         if maxVal == Inf
             @show "GA: Early exit, due to unbreakable route"
             return partition_to_paths(g_indep, maxVec, runS.fp_edges, runS.source, runS.target), logs
@@ -240,11 +285,10 @@ function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging
 
         newFitness = [0.0 for _ = 1:length(newChromosomes)]
 
-        @show fitness
-        @show newFitness
         # Add them to the chromosome pool
         append!(chromosomes, newChromosomes)
         append!(fitness, newFitness)
+
 
         # Mutating individuals
         chromosomes = collect(map(x -> runMutation(x), chromosomes))
@@ -286,8 +330,21 @@ function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging
             push!(logs, logRow)
         end
     end
+    #@show maxVal
+    #@show maxVec
 
-    partition_to_paths(g_indep, maxVec, runS.fp_edges, runS.source, runS.target), logs
+    p1, p2 = partition_to_paths(g_indep, maxVec, runS.fp_edges, runS.source, runS.target)
+
+    if p1 == []
+        p1 = p2
+    end
+    if p2 == []
+        p2 = p1
+    end
+    if p1 == [] && p2 == []
+        @show "No route found?"
+    end
+    (p1, p2), logs
 end
 
 end
