@@ -43,17 +43,18 @@ function toString(x)
     "$(x)"
 end
 
-numberOfRuns = 5
+numberOfRuns = 20
 
+
+aco_param_tuning_nr_gen = [100]
 aco_param_tuning_α = [1]
 aco_param_tuning_β = [1.5]
 aco_param_tuning_nr_ants = [25]
 aco_param_tuning_ρ = [0.3]
 aco_param_tuning_ϵ = [0.1]
-aco_param_tuning_nr_gen = [1]#[100]
 aco_param_tuning_starting_pheromone = [1]
 
-ga_param_tuning_nr_gen = [1]
+ga_param_tuning_nr_gen = [100]
 ga_param_tuning_n_p = [50]
 ga_param_tuning_mut_rate = [0.1]
 ga_param_tuning_cro_rate = [0.9]
