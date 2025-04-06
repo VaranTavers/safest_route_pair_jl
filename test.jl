@@ -44,7 +44,7 @@ function toString(x)
 end
 
 numberOfRuns = 5
-
+limit_pairs = 6
 
 aco_param_tuning_nr_gen = [5]
 aco_param_tuning_α = [1]
@@ -56,12 +56,12 @@ aco_param_tuning_starting_pheromone = [1]
 
 ga_param_tuning_nr_gen = [100]
 ga_param_tuning_n_p = [50]
-ga_param_tuning_mut_rate = [0.1]
+ga_param_tuning_mut_rate = [0.5]
 ga_param_tuning_cro_rate = [0.9]
 ga_param_tuning_elit = [0.5]
 ga_param_tuning_crossover = [crossover_roulette]
 ga_param_tuning_mutation = [mutate]
-ga_param_tuning_fitness = [calc_fitness_paths, calc_fitness_sets] #
+ga_param_tuning_fitness = [calc_fitness_sets] # calc_fitness_paths,
 
 
 
@@ -134,7 +134,8 @@ for (ii, (conf_name, acoS, gaS)) in enumerate(configurations)
             x -> SafestRoutePair.safest_route_pairs_all_aco(
                 gcfp;
                 acoS,
-                logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_ACO_$(x).csv" : "")
+                logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_ACO_$(x).csv" : ""),
+                limit_pairs=limit_pairs
             ),
             1:numberOfRuns,
         )
@@ -165,7 +166,8 @@ for (ii, (conf_name, acoS, gaS)) in enumerate(configurations)
             x -> SafestRoutePair.safest_route_pairs_all_ga(
                 gcfp;
                 gaS=gaS,
-                logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_GA_$(x).csv" : "")
+                logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_GA_$(x).csv" : ""),
+                limit_pairs=limit_pairs
             ),
             1:numberOfRuns,
         )
@@ -190,7 +192,7 @@ for (ii, (conf_name, acoS, gaS)) in enumerate(configurations)
         local_result_df[!, :min_ga] = mins[:]
         local_result_df[!, :max_ga] = maxs[:]
 
-        result3 = SafestRoutePair.safest_route_pairs_all_naive(gcfp)
+        result3 = SafestRoutePair.safest_route_pairs_all_naive(gcfp, limit_pairs=limit_pairs)
 
         local_route_df[!, :naive] = toString.(fst.(snd.(result3)))
         local_result_df[!, :naive] = snd.(snd.(result3))

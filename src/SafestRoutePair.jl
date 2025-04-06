@@ -219,9 +219,16 @@ end
 
 
 # Extracted in order to prevent unnecessary code duplication
-function get_node_pairs(g, undirected::Bool)
+function get_node_pairs(g, undirected::Bool, limit_pairs=0)
     if undirected
-        return collect(Iterators.flatten([[(i, j) for j = (i+1):nv(g)] for i = 1:nv(g)]))[1:25]
+        if limit_pairs != 0
+            return collect(Iterators.flatten([[(i, j) for j = (i+1):nv(g)] for i = 1:nv(g)]))[1:limit_pairs]
+        end
+        return collect(Iterators.flatten([[(i, j) for j = (i+1):nv(g)] for i = 1:nv(g)]))
+    end
+
+    if limit_pairs != 0
+        return collect(filter(((x, y),) -> x != y, Iterators.flatten([[(i, j) for j = 1:nv(g)] for i = 1:nv(g)])))[1:limit_pairs]
     end
 
     collect(filter(((x, y),) -> x != y, Iterators.flatten([[(i, j) for j = 1:nv(g)] for i = 1:nv(g)])))
@@ -247,6 +254,7 @@ acoS  ::ACOSetting (Optional) - the parameters for the ACO algorithm
 logging_file ::String - (Optional) name of the file where we save the logs, leave empty for no logging (by default: "")
 use_folds ::Bool - (Optional) should the algorithm use the Folds package to parallelize some parts (by default: true)
 undirected :: Bool - (Optional) should the algorithm only look in one direction when searching a path between two nodes (by default: true)
+limit_pairs :: Integer - (Optional) how many pairs should be tested (0 means all pairs)
 ```
 
 Return value:
@@ -266,9 +274,10 @@ function safest_route_pairs_all_aco(
     logging_file="",
     use_folds=true,
     undirected=true,
+    limit_pairs=0,
 )
 
-    node_pairs = get_node_pairs(gcfp.g, undirected)
+    node_pairs = get_node_pairs(gcfp.g, undirected, limit_pairs)
 
 
     run_algorithm(
@@ -288,6 +297,7 @@ gaS  ::GeneticSettings (Optional) - the parameters for the ACO algorithm
 logging_file ::String - (Optional) name of the file where we save the logs, leave empty for no logging (by default: "")
 use_folds ::Bool - (Optional) should the algorithm use the Folds package to parallelize some parts (by default: true)
 undirected :: Bool - (Optional) should the algorithm only look in one direction when searching a path between two nodes (by default: true)
+limit_pairs :: Integer - (Optional) how many pairs should be tested (0 means all pairs)
 ```
 
 Return value:
@@ -307,9 +317,10 @@ function safest_route_pairs_all_ga(
     logging_file="",
     use_folds=false,
     undirected=true,
+    limit_pairs=0,
 )
 
-    node_pairs = get_node_pairs(gcfp.g, undirected)
+    node_pairs = get_node_pairs(gcfp.g, undirected, limit_pairs)
 
 
     run_algorithm(
@@ -327,7 +338,7 @@ Parameters (most types are not specified, are only listed for reference)
 gcfp  ::GraphWithFPandCFP - graph and probabilities
 use_folds ::Bool - (Optional) should the algorithm use the Folds package to parallelize some parts (by default: true)
 undirected :: Bool - (Optional) should the algorithm only look in one direction when searching a path between two nodes (by default: true)
-
+limit_pairs :: Integer - (Optional) how many pairs should be tested (0 means all pairs)
 ```
 
 Return value:
@@ -345,9 +356,10 @@ function safest_route_pairs_all_naive(
     gcfp::GraphWithFPandCFP;
     use_folds=false,
     undirected=true,
+    limit_pairs=0,
 )
 
-    node_pairs = get_node_pairs(gcfp.g, undirected)
+    node_pairs = get_node_pairs(gcfp.g, undirected, limit_pairs)
 
 
     run_algorithm(
