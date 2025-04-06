@@ -7,6 +7,9 @@ using GraphIO
 include("gml_reader.jl")
 using .GMLReader
 
+import .GMLReader: GeoPoint, NodeWithGeoPoint, EdgeWithGeoPoints, read_graph_with_positions, lat, lon
+export GeoPoint, NodeWithGeoPoint, EdgeWithGeoPoints, read_graph_with_positions, lat, lon
+
 function getTagFromChildren(node, tagName)
     for x in children(node)
         if tag(x) == tagName

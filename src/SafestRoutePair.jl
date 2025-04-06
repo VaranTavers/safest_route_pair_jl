@@ -1,9 +1,16 @@
 module SafestRoutePair
 
-include("reader.jl")
-include("aco.jl")
-include("ga.jl")
-include("naive_complex.jl")
+include("graph_utils.jl")
+
+using .GraphUtils
+import .GraphUtils: weighted_graph_from_mat, calc_edges_from_nodes, create_indep_graph
+
+include("readers/reader.jl")
+include("algorithms/aco.jl")
+include("algorithms/ga.jl")
+include("algorithms/naive_complex.jl")
+include("plotters/tikz_plotter.jl")
+
 
 using Graphs
 using Folds
@@ -17,14 +24,17 @@ using .NaiveComplex
 import .NaiveComplex: naive_complex, NaiveGreedySettings
 
 using .GraphReader
-import .GraphReader: read_graph_and_failure
+import .GraphReader: read_graph_and_failure, read_graph_with_positions, GeoPoint, NodeWithGeoPoint, EdgeWithGeoPoints, lat, lon
+
+using .TIKZPlotter
+import .TIKZPlotter: graph_to_tikz_net
 
 
-export read_graph_and_failure
-export ACO_preprocessing, calc_fitness
-export ACOSettings, AcoRunSettings
 
+export ACO_preprocessing, calc_fitness, ACOSettings, AcoRunSettings
 export GeneticSettings, GaRunSettings, genetic, mutate, crossover_roulette, calc_fitness_paths, calc_fitness_sets
+export read_graph_and_failure, read_graph_with_positions
+export graph_to_tikz_net, lat, lon
 
 
 
@@ -47,11 +57,6 @@ struct GraphWithFPandCFP
     fp_edges::Vector{Vector{Tuple{Integer,Integer}}}
     cfps::Vector{Real}
     cfp_edges::Vector{Vector{Tuple{Integer,Integer}}}
-end
-
-
-function calc_edges_from_nodes(x)
-    collect(zip(x, x[2:end]))
 end
 
 fst((x, _)) = x
@@ -169,7 +174,7 @@ function safest_route_pair_ga(gcfp::GraphWithFPandCFP, from, to, gaS::GeneticSet
     runS1 = SafestRoutePair.GaRunSettings(gcfp.g, gcfp.fps, gcfp.fp_edges, gcfp.cfps, gcfp.cfp_edges, from, to)
     chromosomes = [[length(es) == 1 ? rand([0, 1, 2]) : 0 for es in gcfp.fp_edges] for _ in 1:gaS.populationSize]
 
-    @time res1, _logs = SafestRoutePair.genetic(runS1, gaS, chromosomes; logging_file=logging_file, use_folds=use_folds)
+    @time res1 = SafestRoutePair.genetic(runS1, gaS, chromosomes; logging_file=logging_file, use_folds=use_folds)
 
     #@show res1
     val1 = calc_availability(res1, gcfp.fps, gcfp.fp_edges)

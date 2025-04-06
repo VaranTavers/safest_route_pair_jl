@@ -1,199 +1,129 @@
+using Pkg
+
+Pkg.activate(".")
+
 using Plots
+using Colors
+
+using SafestRoutePair
+
+import SafestRoutePair: read_graph_with_positions
 
 
-
-function parseGMLDict(f; depth=0, log=false)
-    ret = Dict()
-    row = readline(f)
-
-    while !(occursin("]", row))
-        if isempty(row) && depth == 0
-            break
-        end
-        if !startswith(row, repeat('\t', depth)) && log
-            println("Bad indentation on line: $(row)")
-        end
-        if !isempty(row)
-            parts = split(strip(row), ' ')
-            propName = parts[1]
-            if propName in keys(ret) && !(ret[propName] isa AbstractVector)
-                ret[propName] = [ret[propName]]
-            end
-            if occursin("[", row)
-                propVal = parseGMLDict(f; depth=depth + 1, log=log)
-            else
-                if occursin("\"", row)
-                    propVal = replace(parts[2], '"' => "")
-                elseif occursin(".", row)
-                    propVal = parse(Float64, parts[2])
-                else
-                    propVal = parse(Int64, parts[2])
-                end
-            end
-            if propName in keys(ret)
-                push!(ret[propName], propVal)
-            else
-                ret[propName] = propVal
-            end
-        end
-
-        row = readline(f)
-    end
-    ret
-end
-
-
-struct Point
-    lon::Float64
-    lat::Float64
-end
-
-struct Node
-    point::Point
-    label::String
-    id::Int64
-end
-
-struct Edge
-    source::Int64
-    target::Int64
-    id::Int64
-    points::Vector{Point}
-end
-
-function read_points(points_dict)
-    ret = []
-
-    for point in points_dict["point"]
-        push!(ret, Point(point["Longitude"][1], point["Latitude"][1]))
-    end
-
-    ret
-end
-
-function read_longitude(node_dict)
-    possible_names = ["Longitude", "longitude", "lon"]
-    for name in possible_names
-        if name in keys(node_dict)
-            return node_dict[name]
-        end
-    end
-
-    @error("Latitude information missing from node $(node_dict)")
-end
-
-function read_latitude(node_dict)
-    possible_names = ["Latitude", "latitude", "lat"]
-    for name in possible_names
-        if name in keys(node_dict)
-            return node_dict[name]
-        end
-    end
-
-    @error("Latitude information missing from node $(node_dict)")
-end
-
-function create_node(node_dict)
-
-    Node(
-        Point(
-            read_longitude(node_dict),
-            read_latitude(node_dict)
-        ),
-        node_dict["label"],
-        node_dict["id"]
-    )
-end
-
-function create_edge(edge_dict, i=1)
-    points = []
-    id = i
-    if "points" in keys(edge_dict)
-        points = read_points(edge_dict["points"])
-    end
-    if "id" in keys(edge_dict)
-        id = edge_dict["id"]
-    end
-
-    Edge(
-        edge_dict["source"],
-        edge_dict["target"],
-        id,
-        points
-    )
-end
-
-function read_graph(file)
-    nodes = []
-    edges = []
-    open(file) do f
-        dict = parseGMLDict(f; log=true)["graph"]
-        for node in dict["node"]
-            push!(nodes, create_node(node))
-        end
-        for (i, edge) in enumerate(dict["edge"])
-            push!(edges, create_edge(edge, i))
-        end
-    end
-
-    nodes, edges
-end
-
-
-lat(node::Node) = node.point.lat
-lon(node::Node) = node.point.lon
-
-lat(point::Point) = point.lat
-lon(point::Point) = point.lon
-
-
-function vertex_str(n::Node; label=true, id=false)
-
-    @assert !(label && id) "Label and id should not be used together"
-
-    r_label = label ? n.label : (id ? n.id : "")
-    r_label = replace(r_label, '_' => "\\_")
-    "\\Vertex[y=$(n.point.lat), x=$(n.point.lon), label=$(r_label)]{$(n.id)}"
-end
-
-function node_str(p::Point, label; draw=false)
-    "\\Vertex[y=$(p.lat), x=$(p.lon), shape = coordinate]{$(label)}"
-    #"\\node[x=$(p.lat), y=$(p.lon), $(draw ? "" : "draw = none")]($(label)){};"
-end
-
-function get_point(p::Point)
-    "{$(p.lon), $(p.lat)}"
-end
-
-function get_points(ps::Vector{Point})
-    join(get_point.(ps), ',')
-end
-
-function edge_str(e::Edge; id=false, bend=0, style="solid", color="black")::String
-    if length(e.points) == 0
-        return "\\Edge[$(id ? "label = $(e.id), " : "")bend = $(bend), style={$(style)}, color=$(color)]($(e.source))($(e.target))"
-    end
-
-    "\\Edge[path={$(e.source),$(get_points(e.points)),$(e.target)}, $(id ? "label = $(e.id), " : "")bend = $(bend), style={$(style)}, color=$(color)]($(e.source))($(e.target))"
-end
-
-function graph_to_tikz_net(nodes, edges)
-    res = []
-
-    for n in nodes
-        push!(res, vertex_str(n; label=true, id=false))
-    end
-
-    for e in edges
-        push!(res, edge_str(e)) # ; style="dashed", color="red"
-    end
-
-    res
-end
-
-nodes, edges = read_graph("graphs/italy6/italy6.gml")
+#=
+nodes, edges = read_graph_with_positions("graphs/italy7/italy7.gml")
 
 lines = graph_to_tikz_net(nodes, edges)
 for l in lines
     println(l)
 end
+=#
+
+
+function plot_graph_sets(nodes, edges, fp_edges, solution, color=:black, linestyle=:solid)
+
+    l_n = length(nodes)
+    is_in_s1 = zeros(l_n, l_n)
+    is_in_s2 = zeros(l_n, l_n)
+
+    for (sol, fp_edge_list) in zip(solution, fp_edges)
+        for (a, b) in fp_edge_list
+            if sol == 1
+                is_in_s1[a, b] = 1
+                is_in_s1[b, a] = 1
+            elseif sol == 2
+
+                is_in_s2[a, b] = 1
+                is_in_s2[b, a] = 1
+            end
+        end
+    end
+    # Initialize plot
+    # title="Italy (interroute_v2) $(route[1]) -> $(route[end])"
+    p = plot(grid=false, legend=false, aspect_ratio=1.25, axis=false)
+
+    # Plot edges
+    for edge in edges
+        lats = [lat(p) for p in edge.points]
+        lons = [lon(p) for p in edge.points]
+
+        source = edge.source + 1
+        target = edge.target + 1
+
+        if is_in_s1[source, target] == 1 && is_in_s2[source, target] == 1
+            plot!(p, lons, lats, label="S1 & S2", linewidth=2, axis=false, color=:purple)
+        elseif is_in_s1[source, target] == 1
+            plot!(p, lons, lats, label="S1", linewidth=2, axis=false, color=:red)
+        elseif is_in_s2[source, target] == 1
+            plot!(p, lons, lats, label="S2", linewidth=2, axis=false, color=:blue)
+        else
+            plot!(p, lons, lats, label="None", linewidth=2, axis=false, color=:gray67)
+        end
+
+    end
+
+    # Plot nodes
+    scatter!(p, lon.(nodes), lat.(nodes), markersize=8, series_annotations=[Plots.text(i - 1, pointsize=6) for i in 1:length(nodes)], axis=false)
+
+    p
+end
+
+function plot_graph_set_minus(nodes, edges, fp_edges, solution, color=:black, linestyle=:solid)
+
+    l_n = length(nodes)
+    is_in_s1 = zeros(l_n, l_n)
+    is_in_s2 = zeros(l_n, l_n)
+
+    for (sol, fp_edge_list) in zip(solution, fp_edges)
+        for (a, b) in fp_edge_list
+            if sol == 1
+                is_in_s1[a, b] = 1
+                is_in_s1[b, a] = 1
+            elseif sol == 2
+
+                is_in_s2[a, b] = 1
+                is_in_s2[b, a] = 1
+            end
+        end
+    end
+    # Initialize plot
+    # title="Italy (interroute_v2) $(route[1]) -> $(route[end])"
+    p = plot(grid=false, legend=false, aspect_ratio=1.25, axis=false)
+
+    # Plot edges
+    for edge in edges
+        lats = [lat(p) for p in edge.points]
+        lons = [lon(p) for p in edge.points]
+
+        source = edge.source + 1
+        target = edge.target + 1
+
+        if is_in_s1[source, target] == 1 && is_in_s2[source, target] == 1
+            plot!(p, lons, lats, label="S1 & S2", linewidth=2, axis=false, color=:purple)
+        elseif is_in_s1[source, target] == 1
+            plot!(p, lons, lats, label="S1", linewidth=2, axis=false, color=:red)
+        elseif is_in_s2[source, target] == 1
+            plot!(p, lons, lats, label="S2", linewidth=2, axis=false, color=:blue)
+        else
+            plot!(p, lons, lats, label="None", linewidth=2, axis=false, color=:gray67)
+        end
+
+    end
+
+    # Plot nodes
+    scatter!(p, lon.(nodes), lat.(nodes), markersize=8, series_annotations=[Plots.text(i - 1, pointsize=6) for i in 1:length(nodes)], axis=false)
+
+    p
+end
+
+g, cfps, cfp_edges, fps, fp_edges = read_graph_and_failure("graphs/italy7/italy7.gml", "graphs/italy7/cfp.xml", "graphs/italy7/fp.xml")
+(nodes, edges) = read_graph_with_positions("graphs/italy7/italy7.gml")
+# Example graph data
+
+ga_better_end = [2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0]
+
+ga_worse_start = [1, 0, 1, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0]
+ga_worse_end = [0, 0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 0, 2, 0, 0, 1, 0]
+p = plot_graph_sets(nodes, edges, fp_edges, ga_worse_end)
+# Display plot
+savefig(p, "test_4.pdf")

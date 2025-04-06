@@ -43,10 +43,10 @@ function toString(x)
     "$(x)"
 end
 
-numberOfRuns = 20
+numberOfRuns = 5
 
 
-aco_param_tuning_nr_gen = [100]
+aco_param_tuning_nr_gen = [5]
 aco_param_tuning_α = [1]
 aco_param_tuning_β = [1.5]
 aco_param_tuning_nr_ants = [25]
@@ -61,7 +61,7 @@ ga_param_tuning_cro_rate = [0.9]
 ga_param_tuning_elit = [0.5]
 ga_param_tuning_crossover = [crossover_roulette]
 ga_param_tuning_mutation = [mutate]
-ga_param_tuning_fitness = [calc_fitness_sets] #calc_fitness_paths,
+ga_param_tuning_fitness = [calc_fitness_paths, calc_fitness_sets] #
 
 
 
@@ -134,7 +134,7 @@ for (ii, (conf_name, acoS, gaS)) in enumerate(configurations)
             x -> SafestRoutePair.safest_route_pairs_all_aco(
                 gcfp;
                 acoS,
-                logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_$(x).csv" : "")
+                logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_ACO_$(x).csv" : "")
             ),
             1:numberOfRuns,
         )
@@ -165,7 +165,7 @@ for (ii, (conf_name, acoS, gaS)) in enumerate(configurations)
             x -> SafestRoutePair.safest_route_pairs_all_ga(
                 gcfp;
                 gaS=gaS,
-                logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_$(x).csv" : "")
+                logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_GA_$(x).csv" : "")
             ),
             1:numberOfRuns,
         )

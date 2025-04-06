@@ -3,7 +3,12 @@ module GA
 using Graphs
 using SimpleWeightedGraphs
 using Folds
+using CSV
+using DataFrames
 using Base.Iterators
+using ..GraphUtils
+
+import .GraphUtils: weighted_graph_from_mat, calc_edges_from_nodes, create_indep_graph
 
 struct GeneticSettings
     populationSize::Any
@@ -103,10 +108,6 @@ function crossover_roulette(_g, chromosomes, fitness)
         chromosomes[sample(rouletteWheel)],
         chromosomes[sample(rouletteWheel)]
     )
-end
-
-function calc_edges_from_nodes(x)
-    collect(zip(x, x[2:end]))
 end
 
 # Checks if any y-s are present in x-s
@@ -211,37 +212,9 @@ function calc_fitness_sets(solution, g_indep, runS::GaRunSettings)  #_simple
     sum(runS.fps[solution2.!=0])
 end
 
-function weighted_graph_from_mat(mat)
-    n, _ = size(mat)
-    g = SimpleWeightedGraph(n)
-
-    for i = 1:n
-        for j = 1:n
-            add_edge!(g, i, j, mat[i, j])
-        end
-    end
-
-    g
-end
 
 
-function create_indep_graph(g, cfps::Vector{Real}, cfp_edges::Vector{Vector{Tuple{Integer,Integer}}})
-    edges_mat = adjacency_matrix(g)
-    hits = ones(size(edges_mat)) .* 0.0000001
-
-    # Adds single edge CFP-s as weights to the graph as weights
-    for (break_val, edges) in zip(cfps, cfp_edges)
-        if length(edges) == 1
-            s, e = edges[1]
-            hits[s, e] = break_val
-            hits[e, s] = break_val
-        end
-    end
-
-    weighted_graph_from_mat(hits .* edges_mat)
-end
-
-function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging_file="", use_folds=true)
+function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging_file="", use_folds=true, logging_depth="all")
     # Initializing values and functions for later use
     g_indep = create_indep_graph(runS.g, runS.cfps, runS.cfp_edges)
 
@@ -253,9 +226,6 @@ function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging
     # Initializing global maximum as one of the given chromosome
     maxVal = calcFitness(chromosomes[1])
     maxVec = copy(chromosomes[1])
-
-    # Initializing logging
-    logs = []
 
     fitness = []
     if use_folds
@@ -326,12 +296,18 @@ function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging
         end
 
         if logging_file != ""
-            logRow = (i, maxVal, maxVec)
-            push!(logs, logRow)
+            logdf = []
+            if logging_depth == "iteration_best"
+                logdf = DataFrames.DataFrame(i=i, maxVec=[maxVec === nothing ? [] : maxVec], maxVal=[maxVal === nothing ? -1 : maxVal])
+            elseif logging_depth == "all"
+                logdf = DataFrames.DataFrame(i=i, vecs=["$(chromosomes)"], vals=["$(fitness)"])
+            end
+            CSV.write(logging_file, logdf; append=true)
         end
     end
     #@show maxVal
     #@show maxVec
+
 
     p1, p2 = partition_to_paths(g_indep, maxVec, runS.fp_edges, runS.source, runS.target)
 
@@ -342,9 +318,9 @@ function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging
         p2 = p1
     end
     if p1 == [] && p2 == []
-        @show "No route found?"
+        @show "GA: No route found?"
     end
-    (p1, p2), logs
+    (p1, p2)
 end
 
 end

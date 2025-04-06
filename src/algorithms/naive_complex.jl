@@ -1,12 +1,14 @@
 module NaiveComplex
-begin
-    using Graphs
-    using DataFrames
-    using CSV
-    using SimpleWeightedGraphs
-    using Folds
-    using ConcurrentCollections
-end
+
+using Graphs
+using DataFrames
+using CSV
+using SimpleWeightedGraphs
+using Folds
+using ConcurrentCollections
+
+using ..GraphUtils
+import ..GraphUtils: weighted_graph_from_mat
 
 struct NaiveGreedySettings
     start_p::Integer
@@ -15,18 +17,6 @@ struct NaiveGreedySettings
     break_edges::Vector{Vector{Tuple{Integer,Integer}}}
 end
 
-function weighted_graph_from_mat(mat)
-    n, _ = size(mat)
-    g = SimpleWeightedGraph(n)
-
-    for i = 1:n
-        for j = 1:n
-            add_edge!(g, i, j, mat[i, j])
-        end
-    end
-
-    g
-end
 
 function vec_from_parents(end_p, parents)
     res = zeros(Int64, length(parents))
