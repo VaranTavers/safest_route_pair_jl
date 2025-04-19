@@ -85,7 +85,7 @@ function partition_to_paths(g_indep, partition, fp_edges, source, target)
 end
 
 # Basic mutation that permutates a value in the 0->1->2->0 order on one of the chromosomes
-function mutate(partition)
+function mutate_permute(partition)
     to_mutate = rand(1:length(partition))
     partition2 = deepcopy(partition)
     partition2[to_mutate] = (partition[to_mutate] + 1) % 3
@@ -93,18 +93,36 @@ function mutate(partition)
     partition2
 end
 
+function mutate_random(partition)
+    to_mutate = rand(1:length(partition))
+    partition2 = deepcopy(partition)
+    partition2[to_mutate] = rand(1:3)
+
+    partition2
+end
+
 # Basic crossover that chooses each cromosome randomly from one of the parents
-function single_crossover_naive(partition1, partition2)
+function npoint_crossover_naive(partition1, partition2)
     [rand((1, 2)) == 1 ? partition1[i] : partition2[i] for i in eachindex(partition1)]
 end
 
-function crossover_roulette(_g, chromosomes, fitness)
+function one_point_crossover_naive(partition1, partition2)
+    point = rand(1:length(partition1))
+
+    res = deepcopy(partition1[1:point])
+
+    append!(res, partition2[point+1:end])
+
+    res
+end
+
+function crossover_roulette(_g, chromosomes, fitness, crossoverAlg)
     rouletteWheel = ones(length(chromosomes))
 
     if maximum(minimum.(fitness)) > 0
         rouletteWheel = minimum.(fitness) ./ sum(minimum.(fitness))
     end
-    single_crossover_naive(
+    crossoverAlg(
         chromosomes[sample(rouletteWheel)],
         chromosomes[sample(rouletteWheel)]
     )
@@ -197,6 +215,7 @@ function calc_fitness_sets(solution, g_indep, runS::GaRunSettings)  #_simple
     solution2 = deepcopy(solution)
     edge_comps = [[find_id_of_single_edge(edge, runS) for edge in edges] for edges in runS.fp_edges]
 
+    #=@show edge_comps
     for (i, (sol, comp)) in enumerate(zip(solution, edge_comps))
         l = length(comp)
         if l > 1 && sol == 0
@@ -207,7 +226,7 @@ function calc_fitness_sets(solution, g_indep, runS::GaRunSettings)  #_simple
                 solution2[i] = 2
             end
         end
-    end
+    end=#
 
     sum(runS.fps[solution2.!=0])
 end
@@ -215,6 +234,7 @@ end
 
 
 function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging_file="", use_folds=true, logging_depth="all")
+
     # Initializing values and functions for later use
     g_indep = create_indep_graph(runS.g, runS.cfps, runS.cfp_edges)
 
@@ -249,7 +269,7 @@ function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging
         # Creating p_c% new individuals with the crossover
         # operator, choosing parents based on fitness.
         newChromosomes = [
-            gaS.crossoverAlg(runS.g, chromosomes, fitness) for
+            crossover_roulette(runS.g, chromosomes, fitness, gaS.crossoverAlg) for
             _ = 1:Int(ceil(n_c * gaS.crossoverRate))
         ]
 

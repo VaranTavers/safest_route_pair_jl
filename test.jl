@@ -43,8 +43,8 @@ function toString(x)
     "$(x)"
 end
 
-numberOfRuns = 5
-limit_pairs = 6
+numberOfRuns = 20
+limit_pairs = 15
 
 aco_param_tuning_nr_gen = [5]
 aco_param_tuning_α = [1]
@@ -54,14 +54,14 @@ aco_param_tuning_ρ = [0.3]
 aco_param_tuning_ϵ = [0.1]
 aco_param_tuning_starting_pheromone = [1]
 
-ga_param_tuning_nr_gen = [100]
+ga_param_tuning_nr_gen = [3] #100
 ga_param_tuning_n_p = [50]
 ga_param_tuning_mut_rate = [0.5]
 ga_param_tuning_cro_rate = [0.9]
 ga_param_tuning_elit = [0.5]
-ga_param_tuning_crossover = [crossover_roulette]
-ga_param_tuning_mutation = [mutate]
-ga_param_tuning_fitness = [calc_fitness_sets] # calc_fitness_paths,
+ga_param_tuning_crossover = [npoint_crossover_naive, one_point_crossover_naive]
+ga_param_tuning_mutation = [mutate_permute, mutate_random]
+ga_param_tuning_fitness = [calc_fitness_sets] # calc_fitness_paths, 
 
 
 
@@ -75,7 +75,7 @@ configurations_ACO = [
 ]
 
 configurations_GA = [
-    ("GA_SIMPLE_MORE", GeneticSettings(popSize, mutRate, crossRate, elitRate, crossFunc, mutFunc, nrIter, calcFit)) for
+    ("GA_SIMPLER_GENES", GeneticSettings(popSize, mutRate, crossRate, elitRate, crossFunc, mutFunc, nrIter, calcFit)) for
     popSize in ga_param_tuning_n_p, mutRate in ga_param_tuning_mut_rate, crossRate in ga_param_tuning_cro_rate,
     elitRate in ga_param_tuning_elit, nrIter in ga_param_tuning_nr_gen, crossFunc in ga_param_tuning_crossover, mutFunc in ga_param_tuning_mutation, calcFit in ga_param_tuning_fitness
 ]

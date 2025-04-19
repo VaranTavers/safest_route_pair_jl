@@ -18,7 +18,7 @@ using .ACO
 import .ACO: ACOSettings, AcoRunSettings, ACO_preprocessing, calc_fitness
 
 using .GA
-import .GA: GeneticSettings, GaRunSettings, genetic, mutate, crossover_roulette, calc_fitness_paths, calc_fitness_sets
+import .GA: GeneticSettings, GaRunSettings, genetic, mutate_permute, mutate_random, npoint_crossover_naive, one_point_crossover_naive, crossover_roulette, calc_fitness_paths, calc_fitness_sets
 
 using .NaiveComplex
 import .NaiveComplex: naive_complex, NaiveGreedySettings
@@ -32,7 +32,7 @@ import .TIKZPlotter: graph_to_tikz_net
 
 
 export ACO_preprocessing, calc_fitness, ACOSettings, AcoRunSettings
-export GeneticSettings, GaRunSettings, genetic, mutate, crossover_roulette, calc_fitness_paths, calc_fitness_sets
+export GeneticSettings, GaRunSettings, genetic, mutate_permute, mutate_random, npoint_crossover_naive, one_point_crossover_naive, crossover_roulette, calc_fitness_paths, calc_fitness_sets
 export read_graph_and_failure, read_graph_with_positions
 export graph_to_tikz_net, lat, lon
 
@@ -172,9 +172,18 @@ Tuple{Vector{Int64}, Float64}
 function safest_route_pair_ga(gcfp::GraphWithFPandCFP, from, to, gaS::GeneticSettings; logging_file="", use_folds=true)
 
     runS1 = SafestRoutePair.GaRunSettings(gcfp.g, gcfp.fps, gcfp.fp_edges, gcfp.cfps, gcfp.cfp_edges, from, to)
-    chromosomes = [[length(es) == 1 ? rand([0, 1, 2]) : 0 for es in gcfp.fp_edges] for _ in 1:gaS.populationSize]
 
-    @time res1 = SafestRoutePair.genetic(runS1, gaS, chromosomes; logging_file=logging_file, use_folds=use_folds)
+    # ╔═╡Limits FPs to be above a threshold
+    indices = gcfp.fps .>= 0.0001
+    new_fps = deepcopy(gcfp.fps[indices])
+    new_fp_edges = deepcopy(gcfp.fp_edges[indices])
+    runS1 = GaRunSettings(gcfp.g, new_fps, new_fp_edges, gcfp.cfps, gcfp.cfp_edges, from, to)
+    # ═╡ Limit end =#
+
+    chromosomes = [[length(es) == 1 ? rand([0, 1, 2]) : 0 for es in runS1.fp_edges] for _ in 1:gaS.populationSize] #new_fp_edges
+
+    res1 = SafestRoutePair.genetic(runS1, gaS, chromosomes; logging_file=logging_file, use_folds=use_folds)
+
 
     #@show res1
     val1 = calc_availability(res1, gcfp.fps, gcfp.fp_edges)
