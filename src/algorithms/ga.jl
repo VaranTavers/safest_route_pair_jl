@@ -233,7 +233,7 @@ end
 
 
 
-function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging_file="", use_folds=true, logging_depth="all")
+function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging_file="", use_folds=true, logging_depth="iteration_best")
 
     # Initializing values and functions for later use
     g_indep = create_indep_graph(runS.g, runS.cfps, runS.cfp_edges)
@@ -260,11 +260,11 @@ function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging
         #@show chromosomes
         if maxVal == Inf
             @show "GA: Early exit, due to unbreakable route"
-            return partition_to_paths(g_indep, maxVec, runS.fp_edges, runS.source, runS.target), logs
+            return partition_to_paths(g_indep, maxVec, runS.fp_edges, runS.source, runS.target)
         end
         if maximum(fitness) == Inf
             @show "GA: Early exit, due to unbreakable route"
-            return partition_to_paths(g_indep, chromosomes[argmax(fitness)], runS.fp_edges, runS.source, runS.target), logs
+            return partition_to_paths(g_indep, chromosomes[argmax(fitness)], runS.fp_edges, runS.source, runS.target)
         end
         # Creating p_c% new individuals with the crossover
         # operator, choosing parents based on fitness.
