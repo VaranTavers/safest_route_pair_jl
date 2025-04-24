@@ -10,28 +10,6 @@ using Statistics
 using Dates
 using Folds
 
-
-
-
-#=g, probs, edges = AntSafestRoute.read_graph_and_failure(
-    "../interroute_j.gml",
-    "interroute_v2",
-    "../whole_graph_complete_IX_upper_big_grid.xml",
-)
-
-
-AntSafestRoute.safestRoutesAll(
-    "../interroute_j.gml",
-    "interroute_v2",
-    "../whole_graph_complete_IX_upper_big_grid.xml",
-    "GML+XML",
-)=#
-
-folders = readdir("./graphs")
-
-
-println("Alg_tester_cli started on $(Dates.now())")
-
 fst((x, _)) = x
 snd((_, y)) = y
 
@@ -43,9 +21,44 @@ function toString(x)
     "$(x)"
 end
 
-numberOfRuns = 3
-limit_pairs = 15
+function create_dfs_from_results(results)
+    local_route_df = DataFrame()
+    local_result_df = DataFrame()
 
+    local_route_df[!, :nodes] = fst.(results[1])
+    local_result_df[!, :nodes] = fst.(results[1])
+
+    for (i, result) in enumerate(results)
+        local_route_df[!, :x] = toString.(fst.(snd.(result)))
+        rename!(local_route_df, :x => "run$(i)")
+        local_result_df[!, :x] = snd.(snd.(result))
+        rename!(local_result_df, :x => "run$(i)")
+    end
+
+    tmpMat = Matrix(local_result_df[:, 2:(number_of_runs+1)])
+    means = mean(tmpMat, dims=2)
+    stds = std(tmpMat, dims=2)
+    mins = minimum(tmpMat, dims=2)
+    maxs = maximum(tmpMat, dims=2)
+
+
+    local_result_df[!, :mean] = means[:]
+    local_result_df[!, :std] = stds[:]
+    local_result_df[!, :min] = mins[:]
+    local_result_df[!, :max] = maxs[:]
+
+    local_route_df, local_result_df
+end
+
+
+
+# General configuration
+number_of_runs = 3
+limit_pairs = 15
+run_naive = true
+
+
+# ACO configuration
 aco_param_tuning_nr_gen = [5]
 aco_param_tuning_α = [1]
 aco_param_tuning_β = [1.5]
@@ -54,6 +67,7 @@ aco_param_tuning_ρ = [0.3]
 aco_param_tuning_ϵ = [0.1]
 aco_param_tuning_starting_pheromone = [1]
 
+# GA configuration
 ga_param_tuning_nr_gen = [5] #100
 ga_param_tuning_n_p = [50]
 ga_param_tuning_mut_rate = [0.5]
@@ -82,131 +96,205 @@ configurations_GA = [
 
 configurations = descartes_mult_configs(configurations_ACO, configurations_GA)
 
+
+println("Alg_tester_cli started on $(Dates.now())")
+
+if !isdir("./graphs")
+    println("The graphs directory is missing.")
+    exit(1)
+end
+
+folders = readdir("./graphs")
+
+# Creating the necessary folders
+
 if !isdir("./logs")
+    println("Creating ./logs directory")
     mkdir("./logs")
 end
 if !isdir("./results")
+    println("Creating ./results directory")
     mkdir("./results")
 end
 
-for (ii, (conf_name, acoS, gaS)) in enumerate(configurations)
+date_of_start = Dates.today()
+
+version_on_date = 1
+
+while isdir("results/$(date_of_start)_$(version_on_date)")
+    println("Folder results/$(date_of_start)_$(version_on_date) already exists, moving on to next number")
+    global version_on_date += 1
+end
+
+res_folder_name = "$(date_of_start)_$(version_on_date)"
+if !isdir("logs/$(res_folder_name)")
+    mkdir("logs/$(res_folder_name)")
+end
+if !isdir("results/$(res_folder_name)")
+    mkdir("results/$(res_folder_name)")
+end
+
+# Reading graphs
+
+gcfps::Vector{Tuple{String,SafestRoutePair.GraphWithFPandCFP}} = []
+
+for (i, folder) in enumerate(folders)
+    files = readdir("graphs/$(folder)")
+    println("$(i)/$(length(folders)) $(folder) started on $(Dates.now())")
+
+    graph_files = collect(filter(x -> x[(end-3):end] == ".gml", files))
+    if length(graph_files) < 1
+        println("No GML file was found in $(folder). Skipping")
+        continue
+    end
+    if length(graph_files) > 1
+        println("Multiple GML files were found in $(folder). The program will skip all but $(graph_files[1])")
+    end
+
+    graph_file = graph_files[1]
+    cfp_file = "cfp.xml"
+    fp_file = "fp.xml"
+
+    if !isfile("graphs/$(folder)/$(cfp_file)")
+        println("No CFP file found in $(folder). Skipping")
+        continue
+    end
+    if !isfile("graphs/$(folder)/$(fp_file)")
+        println("No FP file found in $(folder). Skipping")
+        continue
+    end
+
+    g, cfps, cfp_edges, fps, fp_edges = read_graph_and_failure("graphs/$(folder)/$(graph_file)", "graphs/$(folder)/$(cfp_file)", "graphs/$(folder)/$(fp_file)")
+
+    gcfp = SafestRoutePair.GraphWithFPandCFP(g, fps, fp_edges, cfps, cfp_edges)
+
+    push!(gcfps, (folder, gcfp))
+end
+
+
+
+conf_num = 1
+
+# Naive
+if run_naive
+    println("Naive run started on $(Dates.now())")
+    full_folder_name = "$(res_folder_name)/$(conf_num)_naive"
+
+    if !isdir("logs/$(full_folder_name)")
+        mkdir("logs/$(full_folder_name)")
+    end
+    if !isdir("results/$(full_folder_name)")
+        mkdir("results/$(full_folder_name)")
+    end
+
+    open("results/$(full_folder_name)/params.txt", "w") do io
+        println(io, "Naive")
+    end
+
+    for (graph_name, gcfp) in gcfps
+        result = SafestRoutePair.safest_route_pairs_all_naive(gcfp, limit_pairs=limit_pairs)
+
+        results = [result for _ in 1:number_of_runs]
+
+        local_route_df, local_result_df = create_dfs_from_results(results)
+        CSV.write(
+            "results/$(full_folder_name)/run_routes_$(graph_name).csv",
+            local_route_df,
+        )
+        CSV.write(
+            "results/$(full_folder_name)/run_result_$(graph_name).csv",
+            local_result_df,
+        )
+    end
+
+    global conf_num += 1
+end
+
+# ACO configurations
+for (conf_name, acoS) in configurations_ACO
+    # Preparing folders
     println("$(conf_name) started on $(Dates.now())")
+    full_folder_name = "$(res_folder_name)/$(conf_num)_$(conf_name)"
 
-    date_of_start = Dates.today()
-
-    res_folder_name = "$(conf_name)_$(date_of_start)_$(ii)"
-    if !isdir("logs/$(res_folder_name)")
-        mkdir("logs/$(res_folder_name)")
+    if !isdir("logs/$(full_folder_name)")
+        mkdir("logs/$(full_folder_name)")
     end
-    if !isdir("results/$(res_folder_name)")
-        mkdir("results/$(res_folder_name)")
+    if !isdir("results/$(full_folder_name)")
+        mkdir("results/$(full_folder_name)")
     end
 
-
-    open("results/$(res_folder_name)/params.txt", "a") do io
+    open("results/$(full_folder_name)/params.txt", "w") do io
         println(io, "acoS=", acoS)
-        println(io, "gaS=", gaS)
     end
 
-    for (i, folder) in enumerate(folders)
-        files = readdir("graphs/$(folder)")
-        println("$(i)/$(length(folders)) $(folder) started on $(Dates.now())")
-
-        graph_files = collect(filter(x -> x[(end-3):end] == ".gml", files))
-        if length(graph_files) < 1
-            println("No GML file found in $(folder). Skipping")
-            continue
-        end
-
-        graph_file = graph_files[1]
-        cfp_file = "cfp.xml"
-        fp_file = "fp.xml"
-
-
-        local_route_df = DataFrame()
-        local_result_df = DataFrame()
-
-        g, cfps, cfp_edges, fps, fp_edges = read_graph_and_failure("graphs/$(folder)/$(graph_file)", "graphs/$(folder)/$(cfp_file)", "graphs/$(folder)/$(fp_file)")
-
-        gcfp = SafestRoutePair.GraphWithFPandCFP(g, fps, fp_edges, cfps, cfp_edges)
-
+    for (graph_name, gcfp) in gcfps
         results = Folds.map(
             x -> SafestRoutePair.safest_route_pairs_all_aco(
                 gcfp;
                 acoS,
-                logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_ACO_$(x).csv" : ""),
+                logging_file=(x == 1 ? "logs/$(full_folder_name)/$(graph_name)_ACO_$(x).csv" : ""),
                 limit_pairs=limit_pairs
             ),
-            1:numberOfRuns,
+            1:number_of_runs,
         )
 
-        local_route_df[!, :nodes] = fst.(results[1])
-        local_result_df[!, :nodes] = fst.(results[1])
-
-        for (i, result) in enumerate(results)
-            local_route_df[!, :x] = toString.(fst.(snd.(result)))
-            rename!(local_route_df, :x => "aco$(i)")
-            local_result_df[!, :x] = snd.(snd.(result))
-            rename!(local_result_df, :x => "aco$(i)")
-        end
-
-        tmpMat = Matrix(local_result_df[:, 2:(numberOfRuns+1)])
-        means = mean(tmpMat, dims=2)
-        stds = std(tmpMat, dims=2)
-        mins = minimum(tmpMat, dims=2)
-        maxs = maximum(tmpMat, dims=2)
-
-
-        local_result_df[!, :mean_aco] = means[:]
-        local_result_df[!, :std_aco] = stds[:]
-        local_result_df[!, :min_aco] = mins[:]
-        local_result_df[!, :max_aco] = maxs[:]
-
-        results2 = Folds.map(
-            x -> SafestRoutePair.safest_route_pairs_all_ga(
-                gcfp;
-                gaS=gaS,
-                logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_GA_$(x).csv" : ""),
-                limit_pairs=limit_pairs,
-                calculate_dependencies=true
-            ),
-            1:numberOfRuns,
-        )
-
-
-        for (i, result) in enumerate(results2)
-            local_route_df[!, :x] = toString.(fst.(snd.(result)))
-            rename!(local_route_df, :x => "ga$(i)")
-            local_result_df[!, :x] = snd.(snd.(result))
-            rename!(local_result_df, :x => "ga$(i)")
-        end
-
-        tmpMat = Matrix(local_result_df[:, (numberOfRuns+6):end])
-        means = mean(tmpMat, dims=2)
-        stds = std(tmpMat, dims=2)
-        mins = minimum(tmpMat, dims=2)
-        maxs = maximum(tmpMat, dims=2)
-
-
-        local_result_df[!, :mean_ga] = means[:]
-        local_result_df[!, :std_ga] = stds[:]
-        local_result_df[!, :min_ga] = mins[:]
-        local_result_df[!, :max_ga] = maxs[:]
-
-        result3 = SafestRoutePair.safest_route_pairs_all_naive(gcfp, limit_pairs=limit_pairs)
-
-        local_route_df[!, :naive] = toString.(fst.(snd.(result3)))
-        local_result_df[!, :naive] = snd.(snd.(result3))
-
+        local_route_df, local_result_df = create_dfs_from_results(results)
         CSV.write(
-            "results/$(res_folder_name)/run_routes_$(folder).csv",
+            "results/$(full_folder_name)/run_routes_$(graph_name).csv",
             local_route_df,
         )
         CSV.write(
-            "results/$(res_folder_name)/run_result_$(folder).csv",
+            "results/$(full_folder_name)/run_result_$(graph_name).csv",
             local_result_df,
         )
     end
+
+
+    global conf_num += 1
+end
+
+# GA configurations
+for (conf_name, gaS) in configurations_GA
+    # Preparing folders
+    println("$(conf_name) started on $(Dates.now())")
+    full_folder_name = "$(res_folder_name)/$(conf_num)_$(conf_name)"
+
+    if !isdir("logs/$(full_folder_name)")
+        mkdir("logs/$(full_folder_name)")
+    end
+    if !isdir("results/$(full_folder_name)")
+        mkdir("results/$(full_folder_name)")
+    end
+
+    open("results/$(full_folder_name)/params.txt", "w") do io
+        println(io, "gaS=", gaS)
+    end
+
+    for (graph_name, gcfp) in gcfps
+        results = Folds.map(
+            x -> SafestRoutePair.safest_route_pairs_all_ga(
+                gcfp;
+                gaS,
+                logging_file=(x == 1 ? "logs/$(full_folder_name)/$(graph_name)_GA_$(x).csv" : ""),
+                limit_pairs,
+                calculate_dependencies=true
+            ),
+            1:number_of_runs,
+        )
+
+        local_route_df, local_result_df = create_dfs_from_results(results)
+        CSV.write(
+            "results/$(full_folder_name)/run_routes_$(graph_name).csv",
+            local_route_df,
+        )
+        CSV.write(
+            "results/$(full_folder_name)/run_result_$(graph_name).csv",
+            local_result_df,
+        )
+    end
+
+
+    global conf_num += 1
 end
 
 
