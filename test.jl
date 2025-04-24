@@ -43,7 +43,7 @@ function toString(x)
     "$(x)"
 end
 
-numberOfRuns = 20
+numberOfRuns = 3
 limit_pairs = 15
 
 aco_param_tuning_nr_gen = [5]
@@ -54,14 +54,14 @@ aco_param_tuning_ρ = [0.3]
 aco_param_tuning_ϵ = [0.1]
 aco_param_tuning_starting_pheromone = [1]
 
-ga_param_tuning_nr_gen = [3] #100
+ga_param_tuning_nr_gen = [5] #100
 ga_param_tuning_n_p = [50]
 ga_param_tuning_mut_rate = [0.5]
 ga_param_tuning_cro_rate = [0.9]
 ga_param_tuning_elit = [0.5]
 ga_param_tuning_crossover = [npoint_crossover_naive, one_point_crossover_naive]
-ga_param_tuning_mutation = [mutate_permute, mutate_random]
-ga_param_tuning_fitness = [calc_fitness_sets] # calc_fitness_paths, 
+ga_param_tuning_mutation = [mutate_random] #mutate_permute,
+ga_param_tuning_fitness = [calc_fitness_sets] #  ,calc_fitness_paths
 
 
 
@@ -75,7 +75,7 @@ configurations_ACO = [
 ]
 
 configurations_GA = [
-    ("GA_SIMPLER_GENES", GeneticSettings(popSize, mutRate, crossRate, elitRate, crossFunc, mutFunc, nrIter, calcFit)) for
+    ("GA_SIMPLER_GENES_Paths2", GeneticSettings(popSize, mutRate, crossRate, elitRate, crossFunc, mutFunc, nrIter, calcFit)) for
     popSize in ga_param_tuning_n_p, mutRate in ga_param_tuning_mut_rate, crossRate in ga_param_tuning_cro_rate,
     elitRate in ga_param_tuning_elit, nrIter in ga_param_tuning_nr_gen, crossFunc in ga_param_tuning_crossover, mutFunc in ga_param_tuning_mutation, calcFit in ga_param_tuning_fitness
 ]
@@ -94,7 +94,7 @@ for (ii, (conf_name, acoS, gaS)) in enumerate(configurations)
 
     date_of_start = Dates.today()
 
-    res_folder_name = "$(conf_name)_$(ii)_$(date_of_start)"
+    res_folder_name = "$(conf_name)_$(date_of_start)_$(ii)"
     if !isdir("logs/$(res_folder_name)")
         mkdir("logs/$(res_folder_name)")
     end
@@ -167,7 +167,8 @@ for (ii, (conf_name, acoS, gaS)) in enumerate(configurations)
                 gcfp;
                 gaS=gaS,
                 logging_file=(x == 1 ? "logs/$(res_folder_name)/$(folder)_GA_$(x).csv" : ""),
-                limit_pairs=limit_pairs
+                limit_pairs=limit_pairs,
+                calculate_dependencies=true
             ),
             1:numberOfRuns,
         )
