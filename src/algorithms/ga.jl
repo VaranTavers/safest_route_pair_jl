@@ -25,6 +25,7 @@ struct GaRunSettings
     g::Any
     fps::Vector{Real}
     fp_edges::Vector{Vector{Tuple{Integer,Integer}}}
+    fp_depend::Vector{Vector{Integer}}
     cfps::Vector{Real}
     cfp_edges::Vector{Vector{Tuple{Integer,Integer}}}
     source
@@ -188,15 +189,7 @@ function calc_fitness_paths(solution, g_indep, runS::GaRunSettings) # _complex
 end
 
 
-function find_id_of_single_edge(edge, runS::GaRunSettings)
-    for (i, edges) in enumerate(runS.fp_edges)
-        if length(edges) == 1 && (edge == edges[1] || (snd(edge), fst(edge)) == edges[1])
-            return i
-        end
-    end
 
-    return -1
-end
 
 # Alternative fitness function: sum of FP-s from both sets should be maximal
 function calc_fitness_sets(solution, g_indep, runS::GaRunSettings)  #_simple
@@ -213,20 +206,22 @@ function calc_fitness_sets(solution, g_indep, runS::GaRunSettings)  #_simple
     end
 
     solution2 = deepcopy(solution)
-    edge_comps = [[find_id_of_single_edge(edge, runS) for edge in edges] for edges in runS.fp_edges]
 
-    #=@show edge_comps
-    for (i, (sol, comp)) in enumerate(zip(solution, edge_comps))
-        l = length(comp)
-        if l > 1 && sol == 0
-            s = sum([solution[j] for j in comp])
-            if s == l
-                solution2[i] = 1
-            elseif s == 2 * l
-                solution2[i] = 2
+    if length(runS.fp_depend) === length(runS.fp_edges)
+        edge_comps = runS.fp_depend
+
+        for (i, (sol, comp)) in enumerate(zip(solution, edge_comps))
+            l = length(comp)
+            if l > 1 && sol == 0
+                s = sum([solution[j] for j in comp])
+                if s == l
+                    solution2[i] = 1
+                elseif s == 2 * l
+                    solution2[i] = 2
+                end
             end
         end
-    end=#
+    end
 
     sum(runS.fps[solution2.!=0])
 end
