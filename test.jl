@@ -13,10 +13,6 @@ using Folds
 fst((x, _)) = x
 snd((_, y)) = y
 
-function descartes_mult_configs(xs, ys)
-    [("$(fst(x))_$(fst(y))", snd(x), snd(y)) for x in xs, y in ys]
-end
-
 function toString(x)
     "$(x)"
 end
@@ -50,32 +46,8 @@ function create_dfs_from_results(results)
     local_route_df, local_result_df
 end
 
+include("./test_config.jl")
 
-
-# General configuration
-number_of_runs = 20
-limit_pairs = 0
-run_naive = true
-
-
-# ACO configuration
-aco_param_tuning_nr_gen = [5, 100]
-aco_param_tuning_α = [1]
-aco_param_tuning_β = [1.5]
-aco_param_tuning_nr_ants = [25]
-aco_param_tuning_ρ = [0.3]
-aco_param_tuning_ϵ = [0.1]
-aco_param_tuning_starting_pheromone = [1]
-
-# GA configuration
-ga_param_tuning_nr_gen = [100]
-ga_param_tuning_n_p = [50]
-ga_param_tuning_mut_rate = [0.5]
-ga_param_tuning_cro_rate = [0.9]
-ga_param_tuning_elit = [0.5]
-ga_param_tuning_crossover = [npoint_crossover_naive, one_point_crossover_naive]
-ga_param_tuning_mutation = [mutate_permute, mutate_random]
-ga_param_tuning_fitness = [calc_fitness_paths, calc_fitness_sets] # 
 
 
 configurations_ACO = [
@@ -92,8 +64,6 @@ configurations_GA = [
     popSize in ga_param_tuning_n_p, mutRate in ga_param_tuning_mut_rate, crossRate in ga_param_tuning_cro_rate,
     elitRate in ga_param_tuning_elit, nrIter in ga_param_tuning_nr_gen, crossFunc in ga_param_tuning_crossover, mutFunc in ga_param_tuning_mutation, calcFit in ga_param_tuning_fitness
 ]
-
-configurations = descartes_mult_configs(configurations_ACO, configurations_GA)
 
 
 println("Alg_tester_cli started on $(Dates.now())")

@@ -2,3 +2,5 @@ graphs
 logs
 results
 other_graphs
+Manifest.toml
+test_config.jl
