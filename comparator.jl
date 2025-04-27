@@ -5,6 +5,8 @@ using HypothesisTests
 using Statistics
 using StatsPlots
 
+# Simple comparisons
+
 function compare_means(df_1, df_2)
     count(df_1[:, :mean] .> df_2[:, :mean])
 end
@@ -12,6 +14,8 @@ end
 function compare_maxes(df_1, df_2)
     count(df_1[:, :max] .> df_2[:, :max])
 end
+
+# Chess ranking functions
 
 function g(Φ)
     1 / sqrt(1 + 3 * Φ^2 / π^2)
@@ -143,6 +147,9 @@ function chess_ranking(dfs, num_tournamets, num_challenges)
     ratings, rating_deviations
 end
 
+
+# General funtions
+
 function get_comparison_df(dfs, graph, comp_f)
     l = length(dfs)
     mat = zeros(l, l)
@@ -174,26 +181,30 @@ run_chess = true
 run_wilcoxon = true
 number_of_heatmaps_per_graph = 5
 
-folder_name = "results/2025-04-24_1"
+folder_name = "results/2025-04-27_2"
 
 result_prefix = "run_result_"
 dfs = []
 
 graphs = Set()
 
-for variation in readdir(folder_name)
-    if isdir("$(folder_name)/$(variation)") && variation != "images"
-        dfs_var = Dict()
-        files = readdir("$(folder_name)/$(variation)")
+variations = collect(filter(x -> (isdir("$(folder_name)/$(x)") && x != "images"), readdir(folder_name)))
+variation_nums = [parse(Int, split(x, "_")[1]) for x in variations]
+variations = variations[sortperm(variation_nums)]
+@show variations
 
-        for file in filter((f) -> occursin(result_prefix, f), files)
-            graph_name = file[length(result_prefix)+1:end-4]
-            push!(graphs, graph_name)
-            dfs_var[graph_name] = CSV.read("$(folder_name)/$(variation)/$(file)", DataFrame)
-        end
 
-        push!(dfs, dfs_var)
+for variation in variations
+    dfs_var = Dict()
+    files = readdir("$(folder_name)/$(variation)")
+
+    for file in filter((f) -> occursin(result_prefix, f), files)
+        graph_name = file[length(result_prefix)+1:end-4]
+        push!(graphs, graph_name)
+        dfs_var[graph_name] = CSV.read("$(folder_name)/$(variation)/$(file)", DataFrame)
     end
+
+    push!(dfs, dfs_var)
 end
 
 # Simple mean comparison
@@ -214,15 +225,15 @@ if run_max_comp
 end
 
 if run_chess
-    chess_result, confidence = chess_ranking(dfs, 10000, 3)
+    chess_result, confidence = chess_ranking(dfs, 10000, length(dfs) - 1)
 
-    @show chess_result
+    @show chess_result, confidence
 
     sorted_indices = sortperm(chess_result, rev=true)
     sorted_result = chess_result[sorted_indices]
     sorted_confidence = confidence[sorted_indices]
 
-    chess_p = scatter(sorted_result, [10 * i for i in length(chess_result):-1:0], yticks=([10 * i for i in length(chess_result):-1:0], sorted_indices), xerror=sorted_confidence, label=false)
+    chess_p = scatter(sorted_result, [10 * i for i in length(chess_result):-1:0], yticks=([10 * i for i in length(chess_result):-1:0], sorted_indices), xerror=sorted_confidence, title="Chess ranking", label=false)
 
     savefig(chess_p, "$(folder_name)/chess_res.pdf")
 end
@@ -269,8 +280,9 @@ if run_wilcoxon
                         yflip=true,
                         aspect_ratio=0.5,
                         color=[:white, :black],
-                        showaxis=:x,
+                        showaxis=:xy,
                         xticks=1:number_of_variations,
+                        yticks=1:number_of_variations,
                         title="$(graph)_$(dfs[1][graph][node_pair, 1])",
                     ),
                     "$(folder_name)/images/heat_$(graph)_$(dfs[1][graph][node_pair, 1]).pdf",
@@ -280,8 +292,9 @@ if run_wilcoxon
                         conf_mat,
                         yflip=true,
                         aspect_ratio=0.5,
-                        showaxis=:x,
+                        showaxis=:xy,
                         xticks=1:number_of_variations,
+                        yticks=1:number_of_variations,
                         title="$(graph)_$(dfs[1][graph][node_pair, 1])",
                     ),
                     "$(folder_name)/images/heat2_$(graph)_$(dfs[1][graph][node_pair, 1]).pdf",
@@ -313,26 +326,27 @@ if run_wilcoxon
                     ),
                     "$(folder_name)/images/scatter_$(graph)_$(dfs[1][graph][node_pair, 1]).pdf",
                 )
-                #=
-                df = DataFrame(conf_mat, dfs[1][graph][:, 1])
-                df[!, "Config"] = configs_keys
-                CSV.write("$(folder_name)/images/$(graph)_$(dfs[1][graph][node_pair, 1]).csv", df)=#
+
+                df = DataFrame(conf_mat, ["$(i)" for i in 1:number_of_variations])
+                df[!, "Config"] = ["$(i)" for i in 1:number_of_variations]
+                CSV.write("$(folder_name)/images/$(graph)_$(dfs[1][graph][node_pair, 1]).csv", df)
             end
         end
         point_sum
         savefig(
             heatmap(
                 point_sum,
-                rev=true,
+                yflip=true,
                 aspect_ratio=0.5,
-                showaxis=:x,
+                showaxis=:xy,
                 xticks=1:number_of_variations,
+                yticks=1:number_of_variations,
             ),
             "$(folder_name)/images/sum_$(graph).pdf",
         )
 
-        #= sum_df = DataFrame(point_sum, configs_keys)
-        sum_df[!, "Config"] = configs_keys
+        sum_df = DataFrame(point_sum, ["$(i)" for i in 1:number_of_variations])
+        sum_df[!, "Config"] = ["$(i)" for i in 1:number_of_variations]
 
         sum_of_rows = sum(point_sum, dims=2)
         best_version = argmax(sum_of_rows)[1]
@@ -341,7 +355,7 @@ if run_wilcoxon
         sum_df[!, "Sum"] = sum_of_rows[:]
 
         CSV.write("$(folder_name)/images/sum_$(graph).csv", sum_df)
-        =#
+
 
     end
 
