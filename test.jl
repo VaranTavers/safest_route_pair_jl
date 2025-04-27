@@ -21,14 +21,9 @@ function toString(x)
     "$(x)"
 end
 
-<<<<<<< HEAD
-numberOfRuns = 10
-limit_pairs = 0
-=======
 function create_dfs_from_results(results)
     local_route_df = DataFrame()
     local_result_df = DataFrame()
->>>>>>> 4e05d61b4ea3c5e1f22c637613881c83d93a7207
 
     local_route_df[!, :nodes] = fst.(results[1])
     local_result_df[!, :nodes] = fst.(results[1])
