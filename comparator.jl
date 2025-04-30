@@ -239,7 +239,9 @@ if run_chess
 end
 
 if run_wilcoxon
-
+    if !isdir("$(folder_name)/images")
+        mkdir("$(folder_name)/images")
+    end
     number_of_variations = length(dfs)
 
     for graph in graphs
@@ -248,8 +250,8 @@ if run_wilcoxon
 
         l_df, _ = size(dfs[1][graph])
 
-        if !isdir("$(folder_name)/images")
-            mkdir("$(folder_name)/images")
+        if !isdir("$(folder_name)/images/$(graph)")
+            mkdir("$(folder_name)/images/$(graph)")
         end
 
         for node_pair in 1:l_df
@@ -287,7 +289,7 @@ if run_wilcoxon
                         yticks=1:number_of_variations,
                         title="$(graph)_$(dfs[1][graph][node_pair, 1])",
                     ),
-                    "$(folder_name)/images/heat_$(graph)_$(dfs[1][graph][node_pair, 1]).pdf",
+                    "$(folder_name)/images/$(graph)/heat_$(graph)_$(dfs[1][graph][node_pair, 1]).pdf",
                 )
                 savefig(
                     Plots.heatmap(
@@ -299,7 +301,7 @@ if run_wilcoxon
                         yticks=1:number_of_variations,
                         title="$(graph)_$(dfs[1][graph][node_pair, 1])",
                     ),
-                    "$(folder_name)/images/heat2_$(graph)_$(dfs[1][graph][node_pair, 1]).pdf",
+                    "$(folder_name)/images/$(graph)/heat2_$(graph)_$(dfs[1][graph][node_pair, 1]).pdf",
                 )
 
                 savefig(
@@ -313,7 +315,7 @@ if run_wilcoxon
                         ylabel="fitness value",
                         title="$(graph)_$(dfs[1][graph][node_pair, 1])",
                     ),
-                    "$(folder_name)/images/box_$(graph)_$(dfs[1][graph][node_pair, 1]).pdf",
+                    "$(folder_name)/images/$(graph)/box_$(graph)_$(dfs[1][graph][node_pair, 1]).pdf",
                 )
 
 
@@ -326,12 +328,12 @@ if run_wilcoxon
                         xticks=1:number_of_variations,
                         title="$(graph)_$(dfs[1][graph][node_pair, 1])",
                     ),
-                    "$(folder_name)/images/scatter_$(graph)_$(dfs[1][graph][node_pair, 1]).pdf",
+                    "$(folder_name)/images/$(graph)/scatter_$(graph)_$(dfs[1][graph][node_pair, 1]).pdf",
                 )
 
                 df = DataFrame(conf_mat, ["$(i)" for i in 1:number_of_variations])
                 df[!, "Config"] = ["$(i)" for i in 1:number_of_variations]
-                CSV.write("$(folder_name)/images/$(graph)_$(dfs[1][graph][node_pair, 1]).csv", df)
+                CSV.write("$(folder_name)/images/$(graph)/$(graph)_$(dfs[1][graph][node_pair, 1]).csv", df)
             end
         end
         point_sum
