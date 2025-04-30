@@ -244,6 +244,7 @@ if run_wilcoxon
 
     for graph in graphs
         point_sum = zeros(number_of_variations, number_of_variations)
+        point_sum_d = zeros(number_of_variations, number_of_variations)
 
         l_df, _ = size(dfs[1][graph])
 
@@ -272,6 +273,7 @@ if run_wilcoxon
 
 
             point_sum += conf_mat
+            point_sum_d += conf_mat_d
 
             if node_pair <= number_of_heatmaps_per_graph
                 savefig(
@@ -343,6 +345,20 @@ if run_wilcoxon
                 yticks=1:number_of_variations,
             ),
             "$(folder_name)/images/sum_$(graph).pdf",
+        )
+
+        point_sum_d ./= l_df
+        savefig(
+            heatmap(
+                point_sum_d,
+                yflip=true,
+                aspect_ratio=0.5,
+                color=[:white, :black],
+                showaxis=:xy,
+                xticks=1:number_of_variations,
+                yticks=1:number_of_variations,
+            ),
+            "$(folder_name)/images/percent_$(graph).pdf",
         )
 
         sum_df = DataFrame(point_sum, ["$(i)" for i in 1:number_of_variations])
