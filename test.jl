@@ -60,9 +60,10 @@ configurations_ACO = [
 ]
 
 configurations_GA = [
-    ("GA_SIMPLER_GENES_Paths2", GeneticSettings(popSize, mutRate, crossRate, elitRate, crossFunc, mutFunc, nrIter, calcFit)) for
+    ("GA_SIMPLER_GENES_Paths2", GeneticSettings(popSize, mutRate, crossRate, elitRate, crossFunc, mutFunc, nrIter, calcFit, probLimit, edgeLimit, seedNaive)) for
     popSize in ga_param_tuning_n_p, mutRate in ga_param_tuning_mut_rate, crossRate in ga_param_tuning_cro_rate,
-    elitRate in ga_param_tuning_elit, nrIter in ga_param_tuning_nr_gen, crossFunc in ga_param_tuning_crossover, mutFunc in ga_param_tuning_mutation, calcFit in ga_param_tuning_fitness
+    elitRate in ga_param_tuning_elit, nrIter in ga_param_tuning_nr_gen, crossFunc in ga_param_tuning_crossover,
+    mutFunc in ga_param_tuning_mutation, calcFit in ga_param_tuning_fitness, probLimit in ga_param_prob_limit, edgeLimit in ga_param_edge_limit, seedNaive in ga_param_seed_naive
 ]
 
 
@@ -109,7 +110,6 @@ gcfps::Vector{Tuple{String,SafestRoutePair.GraphWithFPandCFP}} = []
 
 for (i, folder) in enumerate(folders)
     files = readdir("graphs/$(folder)")
-    println("$(i)/$(length(folders)) $(folder) started on $(Dates.now())")
 
     graph_files = collect(filter(x -> x[(end-3):end] == ".gml", files))
     if length(graph_files) < 1
@@ -161,6 +161,7 @@ if run_naive
     end
 
     for (graph_name, gcfp) in gcfps
+        println("$(conf_num) $(graph_name) Naive started on $(Dates.now())")
         result = SafestRoutePair.safest_route_pairs_all_naive(gcfp, limit_pairs=limit_pairs)
 
         results = [result for _ in 1:number_of_runs]
@@ -197,6 +198,7 @@ for (conf_name, acoS) in configurations_ACO
     end
 
     for (graph_name, gcfp) in gcfps
+        println("$(conf_num): $(graph_name) ACO started on $(Dates.now())")
         results = Folds.map(
             x -> SafestRoutePair.safest_route_pairs_all_aco(
                 gcfp;
@@ -240,13 +242,13 @@ for (conf_name, gaS) in configurations_GA
     end
 
     for (graph_name, gcfp) in gcfps
+        println("$(conf_num): $(graph_name) GA started on $(Dates.now())")
         results = Folds.map(
             x -> SafestRoutePair.safest_route_pairs_all_ga(
                 gcfp;
                 gaS,
                 logging_file=(x == 1 ? "logs/$(full_folder_name)/$(graph_name)_GA_$(x).csv" : ""),
                 limit_pairs,
-                calculate_dependencies=true
             ),
             1:number_of_runs,
         )

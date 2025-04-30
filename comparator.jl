@@ -181,7 +181,7 @@ run_chess = true
 run_wilcoxon = true
 number_of_heatmaps_per_graph = 5
 
-folder_name = "results/2025-04-27_2"
+folder_name = "results/2025-04-30_2"
 
 result_prefix = "run_result_"
 dfs = []

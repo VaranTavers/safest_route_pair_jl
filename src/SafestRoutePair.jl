@@ -117,6 +117,40 @@ function find_id_of_single_edge(edge, fp_edges)
     return -1
 end
 
+function is_edge_in_list(list, edge)
+    for e in list
+        if (fst(e) == fst(edge) && snd(e) == snd(edge)) || (fst(e) == snd(edge) && snd(e) == fst(edge))
+            return true
+        end
+    end
+    false
+end
+
+function get_set_of_edge(p1_edges, p2_edges, edges)
+    if length(edges) > 1
+        return 0
+    end
+    any_in_p1 = any([is_edge_in_list(p1_edges, edge) for edge in edges])
+    any_in_p2 = any([is_edge_in_list(p2_edges, edge) for edge in edges])
+
+    if any_in_p1 && any_in_p2
+        0
+    elseif any_in_p1
+        2
+    elseif any_in_p2
+        1
+    else
+        rand([1, 2])
+    end
+end
+
+function result_to_ga_chromosome((p1, p2), fp_edges)
+    p1_edges = collect(zip(p1, p1[2:end]))
+    p2_edges = collect(zip(p2, p2[2:end]))
+
+    [get_set_of_edge(p1_edges, p2_edges, edges) for edges in fp_edges]
+end
+
 
 """
 
@@ -185,19 +219,19 @@ Tuple{Vector{Int64}, Float64}
 )
 ```
 """
-function safest_route_pair_ga(gcfp::GraphWithFPandCFP, from, to, gaS::GeneticSettings; logging_file="", use_folds=true, prob_limit=0, edge_limit=0, fp_depend=[])
+function safest_route_pair_ga(gcfp::GraphWithFPandCFP, from, to, gaS::GeneticSettings; logging_file="", use_folds=true, fp_depend=[])
 
     runS1 = []
-    if prob_limit == 0 && edge_limit == 0
+    if gaS.prob_limit == 0 && gaS.edge_limit == 0
         runS1 = SafestRoutePair.GaRunSettings(gcfp.g, gcfp.fps, gcfp.fp_edges, fp_depend, gcfp.cfps, gcfp.cfp_edges, from, to)
-    elseif prob_limit != 0
+    elseif gaS.prob_limit != 0
         # 0.0001
-        indices = gcfp.fps .>= prob_limit
+        indices = gcfp.fps .>= gaS.prob_limit
         new_fps = deepcopy(gcfp.fps[indices])
         new_fp_edges = deepcopy(gcfp.fp_edges[indices])
         runS1 = GaRunSettings(gcfp.g, new_fps, new_fp_edges, gcfp.cfps, gcfp.cfp_edges, from, to)
     else
-        indices = length.(gcfp.fp_edges) .<= edge_limit
+        indices = length.(gcfp.fp_edges) .<= gaS.edge_limit
         new_fps = deepcopy(gcfp.fps[indices])
         new_fp_edges = deepcopy(gcfp.fp_edges[indices])
         runS1 = GaRunSettings(gcfp.g, new_fps, new_fp_edges, gcfp.cfps, gcfp.cfp_edges, from, to)
@@ -206,6 +240,17 @@ function safest_route_pair_ga(gcfp::GraphWithFPandCFP, from, to, gaS::GeneticSet
 
 
     chromosomes = [[length(es) == 1 ? rand([0, 1, 2]) : 0 for es in runS1.fp_edges] for _ in 1:gaS.populationSize] #new_fp_edges
+
+    if gaS.seed_naive
+        naive_result, _ = safest_route_pair_naive(gcfp, from, to)
+        @show naive_result
+        naive_chromosome = result_to_ga_chromosome(naive_result, runS1.fp_edges)
+        @show naive_chromosome
+        for i in 1:Int(floor(gaS.populationSize / 10))
+            chromosomes[i] = deepcopy(naive_chromosome)
+        end
+
+    end
 
     res1 = SafestRoutePair.genetic(runS1, gaS, chromosomes; logging_file=logging_file, use_folds=use_folds)
 
@@ -332,9 +377,6 @@ logging_file ::String - (Optional) name of the file where we save the logs, leav
 use_folds ::Bool - (Optional) should the algorithm use the Folds package to parallelize some parts (by default: true)
 undirected :: Bool - (Optional) should the algorithm only look in one direction when searching a path between two nodes (by default: true)
 limit_pairs :: Integer - (Optional) how many pairs should be tested (0 means all pairs)
-prob_limit ::Real - (Optional) FP values below this value are ignored in order to reduce chromosome size (0 means disabled)
-edge_limit ::Int - (Optional) FP-s containing more edges than this value are ignored in order to reduce chromosome size (0 means disabled), if prob_limit is provided, this will be ignored
-calculate_dependencies:: Bool - (optional) should it calculate dependencies between FP-s, if an FP set contains two or more edges, we consider it to be dependent on all FP-s which only contain those edges. This only works with calc_fitness_sets.
 ```
 
 Return value:
@@ -355,20 +397,15 @@ function safest_route_pairs_all_ga(
     use_folds=false,
     undirected=true,
     limit_pairs=0,
-    prob_limit=0,
-    edge_limit=0,
-    calculate_dependencies=false
 )
 
     node_pairs = get_node_pairs(gcfp.g, undirected, limit_pairs)
 
-    fp_depend = []
-    if calculate_dependencies
-        fp_depend = [[find_id_of_single_edge(edge, gcfp.fp_edges) for edge in edges] for edges in gcfp.fp_edges]
-    end
+
+    fp_depend = [[find_id_of_single_edge(edge, gcfp.fp_edges) for edge in edges] for edges in gcfp.fp_edges]
 
     run_algorithm(
-        ((x, y),) -> ((x, y), safest_route_pair_ga(gcfp, x, y, gaS; logging_file=(logging_file != "" ? "$(logging_file)_$(x)_$(y).csv" : ""), use_folds=use_folds, prob_limit, edge_limit, fp_depend)),
+        ((x, y),) -> ((x, y), safest_route_pair_ga(gcfp, x, y, gaS; logging_file=(logging_file != "" ? "$(logging_file)_$(x)_$(y).csv" : ""), use_folds=use_folds, fp_depend)),
         node_pairs,
         use_folds
     )

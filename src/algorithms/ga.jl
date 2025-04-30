@@ -10,6 +10,11 @@ using ..GraphUtils
 
 import .GraphUtils: weighted_graph_from_mat, calc_edges_from_nodes, create_indep_graph
 
+#=
+prob_limit ::Real - (Optional) FP values below this value are ignored in order to reduce chromosome size (0 means disabled)
+edge_limit ::Int - (Optional) FP-s containing more edges than this value are ignored in order to reduce chromosome size (0 means disabled), if prob_limit is provided, this will be ignored
+calculate_dependencies:: Bool - (optional) should it calculate dependencies between FP-s, if an FP set contains two or more edges, we consider it to be dependent on all FP-s which only contain those edges. This only works with calc_fitness_sets.
+=#
 struct GeneticSettings
     populationSize::Any
     mutationRate::Any
@@ -19,6 +24,9 @@ struct GeneticSettings
     mutationAlg::Any
     numberOfIterations::Any
     fitnessCalc::Any
+    prob_limit::Any
+    edge_limit::Any
+    seed_naive::Bool
 end
 
 struct GaRunSettings
@@ -213,10 +221,10 @@ function calc_fitness_sets(solution, g_indep, runS::GaRunSettings)  #_simple
         for (i, (sol, comp)) in enumerate(zip(solution, edge_comps))
             l = length(comp)
             if l > 1 && sol == 0
-                s = sum([solution[j] for j in comp])
-                if s == l
+                vals = [solution[j] for j in comp]
+                if all(vals .== 1)
                     solution2[i] = 1
-                elseif s == 2 * l
+                elseif all(vals .== 2)
                     solution2[i] = 2
                 end
             end

@@ -63,7 +63,7 @@ function naive_complex(edges_mat, runS::NaiveGreedySettings)
 
     D = dijkstra_shortest_paths(g, runS.start_p)
 
-    @show 1, Matrix(g.weights)
+    #@show 1, Matrix(g.weights)
 
     #@show hits
     #@show D
@@ -78,7 +78,7 @@ function naive_complex(edges_mat, runS::NaiveGreedySettings)
     end
 
 
-    @show 2, Matrix(g.weights)
+    #@show 2, Matrix(g.weights)
 
     D2 = dijkstra_shortest_paths(g, runS.start_p)
 

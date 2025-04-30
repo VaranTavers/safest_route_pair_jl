@@ -22,3 +22,6 @@ ga_param_tuning_elit = [0.5]
 ga_param_tuning_crossover = [npoint_crossover_naive, one_point_crossover_naive]
 ga_param_tuning_mutation = [mutate_permute, mutate_random]
 ga_param_tuning_fitness = [calc_fitness_paths, calc_fitness_sets] # 
+ga_param_prob_limit = [0]
+ga_param_edge_limit = [0]
+ga_param_seed_naive = [false]
