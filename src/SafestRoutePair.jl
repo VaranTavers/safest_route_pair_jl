@@ -392,7 +392,7 @@ Vector{Tuple{(Vector{Int64}, Float64})}}
 """
 function safest_route_pairs_all_ga(
     gcfp::GraphWithFPandCFP;
-    gaS::GeneticSettings=GeneticSettings(25, 0.1, 0.9, 0.5, crossover_roulette, mutate, 100),
+    gaS::GeneticSettings=GeneticSettings(25, 0.1, 0.9, 0.5, npoint_crossover_naive, mutate_permute, 100, calc_fitness_sets, 0, 0, false),
     logging_file="",
     use_folds=false,
     undirected=true,
