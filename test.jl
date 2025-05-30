@@ -162,7 +162,8 @@ if run_naive
 
     for (graph_name, gcfp) in gcfps
         println("$(conf_num) $(graph_name) Naive started on $(Dates.now())")
-        result = SafestRoutePair.safest_route_pairs_all_naive(gcfp, limit_pairs=limit_pairs)
+        result = SafestRoutePair.safest_route_pairs_all_naive(gcfp, limit_pairs=limit_pairs,
+            use_folds=false)
 
         results = [result for _ in 1:number_of_runs]
 
@@ -204,7 +205,8 @@ for (conf_name, acoS) in configurations_ACO
                 gcfp;
                 acoS,
                 logging_file=(x == 1 ? "logs/$(full_folder_name)/$(graph_name)_ACO_$(x).csv" : ""),
-                limit_pairs=limit_pairs
+                limit_pairs=limit_pairs,
+                use_folds=false
             ),
             1:number_of_runs,
         )

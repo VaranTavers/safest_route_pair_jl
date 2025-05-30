@@ -181,9 +181,8 @@ function safest_route_pair_aco(gcfp::GraphWithFPandCFP, from, to, acoS; logging_
     #@show Matrix(adjacency_matrix(g))
 
 
-
     runS1 = SafestRoutePair.AcoRunSettings(from, to, from + nv(gcfp.g), gcfp.fps, gcfp.fp_edges)
-    res1, _val1 = SafestRoutePair.ACO_preprocessing(acoS, runS1, gcfp.g, gcfp.cfps, gcfp.cfp_edges; logging_file=logging_file, use_folds=use_folds)
+    @time "ACO: $(from), $(to)" res1, _val1 = SafestRoutePair.ACO_preprocessing(acoS, runS1, gcfp.g, gcfp.cfps, gcfp.cfp_edges; logging_file=logging_file, use_folds=use_folds)
 
     val1 = calc_availability(res1, gcfp.fps, gcfp.fp_edges)
 
@@ -243,9 +242,7 @@ function safest_route_pair_ga(gcfp::GraphWithFPandCFP, from, to, gaS::GeneticSet
 
     if gaS.seed_naive
         naive_result, _ = safest_route_pair_naive(gcfp, from, to)
-        @show naive_result
         naive_chromosome = result_to_ga_chromosome(naive_result, runS1.fp_edges)
-        @show naive_chromosome
         for i in 1:Int(floor(gaS.populationSize / 10))
             chromosomes[i] = deepcopy(naive_chromosome)
         end
@@ -285,7 +282,7 @@ Tuple{Vector{Int64}, Float64}
 """
 function safest_route_pair_naive(gcfp::GraphWithFPandCFP, from, to)
 
-    res1 = SafestRoutePair.naive_complex(adjacency_matrix(gcfp.g), NaiveGreedySettings(from, to, gcfp.cfps, gcfp.cfp_edges))
+    @time "Naive $(from), $(to)" res1 = SafestRoutePair.naive_complex(adjacency_matrix(gcfp.g), NaiveGreedySettings(from, to, gcfp.cfps, gcfp.cfp_edges))
 
 
     #@show res1
