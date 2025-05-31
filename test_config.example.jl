@@ -2,7 +2,7 @@
 number_of_runs = 20
 limit_pairs = 0
 run_naive = true
-
+run_suurballe = true
 
 # ACO configuration
 aco_param_tuning_nr_gen = [5, 100]

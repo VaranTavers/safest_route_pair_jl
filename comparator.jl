@@ -179,9 +179,9 @@ run_mean_comp = true
 run_max_comp = true
 run_chess = true
 run_wilcoxon = true
-number_of_heatmaps_per_graph = 300
+number_of_heatmaps_per_graph = 2
 
-folder_name = "results/2025-05-09_1_PARAM_TUNE/"
+folder_name = "results/2025-05-30_1/"
 
 result_prefix = "run_result_"
 dfs = []

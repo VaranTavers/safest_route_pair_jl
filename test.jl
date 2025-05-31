@@ -181,6 +181,43 @@ if run_naive
     global conf_num += 1
 end
 
+# Suurballe
+if run_suurballe
+    println("Suurballe run started on $(Dates.now())")
+    full_folder_name = "$(res_folder_name)/$(conf_num)_suurballe"
+
+    if !isdir("logs/$(full_folder_name)")
+        mkdir("logs/$(full_folder_name)")
+    end
+    if !isdir("results/$(full_folder_name)")
+        mkdir("results/$(full_folder_name)")
+    end
+
+    open("results/$(full_folder_name)/params.txt", "w") do io
+        println(io, "Suurballe")
+    end
+
+    for (graph_name, gcfp) in gcfps
+        println("$(conf_num) $(graph_name) Suurballe started on $(Dates.now())")
+        result = SafestRoutePair.safest_route_pairs_all_suurballe(gcfp, limit_pairs=limit_pairs,
+            use_folds=false)
+
+        results = [result for _ in 1:number_of_runs]
+
+        local_route_df, local_result_df = create_dfs_from_results(results)
+        CSV.write(
+            "results/$(full_folder_name)/run_routes_$(graph_name).csv",
+            local_route_df,
+        )
+        CSV.write(
+            "results/$(full_folder_name)/run_result_$(graph_name).csv",
+            local_result_df,
+        )
+    end
+
+    global conf_num += 1
+end
+
 # ACO configurations
 for (conf_name, acoS) in configurations_ACO
     # Preparing folders

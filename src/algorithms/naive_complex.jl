@@ -1,11 +1,9 @@
 module NaiveComplex
 
 using Graphs
-using DataFrames
-using CSV
 using SimpleWeightedGraphs
-using Folds
-using ConcurrentCollections
+# using Folds
+# using ConcurrentCollections
 
 using ..GraphUtils
 import ..GraphUtils: weighted_graph_from_mat

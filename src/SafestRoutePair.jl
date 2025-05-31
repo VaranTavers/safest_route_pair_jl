@@ -9,6 +9,7 @@ include("readers/reader.jl")
 include("algorithms/aco.jl")
 include("algorithms/ga.jl")
 include("algorithms/naive_complex.jl")
+include("algorithms/suurballe.jl")
 include("plotters/tikz_plotter.jl")
 
 
@@ -23,6 +24,9 @@ import .GA: GeneticSettings, GaRunSettings, genetic, mutate_permute, mutate_rand
 using .NaiveComplex
 import .NaiveComplex: naive_complex, NaiveGreedySettings
 
+using .Suurballe
+import .Suurballe: suurballe, SuurballeSettings
+
 using .GraphReader
 import .GraphReader: read_graph_and_failure, read_graph_with_positions, GeoPoint, NodeWithGeoPoint, EdgeWithGeoPoints, lat, lon
 
@@ -33,6 +37,7 @@ import .TIKZPlotter: graph_to_tikz_net
 
 export ACO_preprocessing, calc_fitness, ACOSettings, AcoRunSettings
 export GeneticSettings, GaRunSettings, genetic, mutate_permute, mutate_random, npoint_crossover_naive, one_point_crossover_naive, crossover_roulette, calc_fitness_paths, calc_fitness_sets
+export suurballe, SuurballeSettings
 export read_graph_and_failure, read_graph_with_positions
 export graph_to_tikz_net, lat, lon
 
@@ -182,7 +187,7 @@ function safest_route_pair_aco(gcfp::GraphWithFPandCFP, from, to, acoS; logging_
 
 
     runS1 = SafestRoutePair.AcoRunSettings(from, to, from + nv(gcfp.g), gcfp.fps, gcfp.fp_edges)
-    @time "ACO: $(from), $(to)" res1, _val1 = SafestRoutePair.ACO_preprocessing(acoS, runS1, gcfp.g, gcfp.cfps, gcfp.cfp_edges; logging_file=logging_file, use_folds=use_folds)
+    res1, _val1 = SafestRoutePair.ACO_preprocessing(acoS, runS1, gcfp.g, gcfp.cfps, gcfp.cfp_edges; logging_file=logging_file, use_folds=use_folds)
 
     val1 = calc_availability(res1, gcfp.fps, gcfp.fp_edges)
 
@@ -282,7 +287,42 @@ Tuple{Vector{Int64}, Float64}
 """
 function safest_route_pair_naive(gcfp::GraphWithFPandCFP, from, to)
 
-    @time "Naive $(from), $(to)" res1 = SafestRoutePair.naive_complex(adjacency_matrix(gcfp.g), NaiveGreedySettings(from, to, gcfp.cfps, gcfp.cfp_edges))
+    res1 = SafestRoutePair.naive_complex(adjacency_matrix(gcfp.g), NaiveGreedySettings(from, to, gcfp.cfps, gcfp.cfp_edges))
+
+
+    #@show res1
+    val1 = calc_availability(res1, gcfp.fps, gcfp.fp_edges)
+    #@show val1
+
+    (res1, val1)
+end
+
+"""
+
+Runs the suurballe algorithm to find the safest route pair between `from` and `to` in graph `gcfp`. 
+
+Warning: Only gives distinct routes if there are 2 edge independent routes between `from` and `to`.
+
+Parameters (most types are not specified, are only listed for reference)
+
+```
+gcfp  ::GraphWithFPandCFP - graph and probabilities
+from  ::Int64 - the index of the starting node (julia indexes from 1)
+to    ::Int64 - the index of the target node (julia indexes from 1)
+```
+
+Return value:
+```
+Tuple{Vector{Int64}, Float64}
+(
+  res ::Tuple{Vector{Int64}, Vector{Int64}} - two list of nodes describing the two paths
+  val ::Float64 - the negative logarithm of the breakage probability (to convert it back do: 1 - exp(-val))
+)
+```
+"""
+function safest_route_pair_suurballe(gcfp::GraphWithFPandCFP, from, to)
+
+    res1 = SafestRoutePair.suurballe(gcfp.g, SuurballeSettings(from, to, gcfp.cfps, gcfp.cfp_edges))
 
 
     #@show res1
@@ -409,7 +449,7 @@ function safest_route_pairs_all_ga(
 end
 
 """
-Runs the genetic algorithm for all node pairs (by default undirected only, but configurable), where the nodes are distinct.
+Runs the naive algorithm for all node pairs (by default undirected only, but configurable), where the nodes are distinct.
 
 Parameters (most types are not specified, are only listed for reference)
 ```
@@ -442,6 +482,47 @@ function safest_route_pairs_all_naive(
 
     run_algorithm(
         ((x, y),) -> ((x, y), safest_route_pair_naive(gcfp, x, y)),
+        node_pairs,
+        use_folds
+    )
+end
+
+"""
+Runs the suurballe algorithm for all node pairs (by default undirected only, but configurable), where the nodes are distinct.
+
+Warning: Only gives distinct routes if there are 2 edge independent routes between `from` and `to`.
+
+Parameters (most types are not specified, are only listed for reference)
+```
+gcfp  ::GraphWithFPandCFP - graph and probabilities
+use_folds ::Bool - (Optional) should the algorithm use the Folds package to parallelize some parts (by default: true)
+undirected :: Bool - (Optional) should the algorithm only look in one direction when searching a path between two nodes (by default: true)
+limit_pairs :: Integer - (Optional) how many pairs should be tested (0 means all pairs)
+```
+
+Return value:
+
+Pairs of routes and the negative logarithms of breakage probabilities.
+```
+Vector{Tuple{(Vector{Int64}, Float64})}}
+[(
+  res ::Tuple{Vector{Int64}, Vector{Int64}} - two list of nodes describing the two paths
+  val ::Float64 - the negative logarithm of the breakage probability (to convert it back do: 1 - exp(-val))
+)]
+```
+"""
+function safest_route_pairs_all_suurballe(
+    gcfp::GraphWithFPandCFP;
+    use_folds=false,
+    undirected=true,
+    limit_pairs=0,
+)
+
+    node_pairs = get_node_pairs(gcfp.g, undirected, limit_pairs)
+
+
+    run_algorithm(
+        ((x, y),) -> ((x, y), safest_route_pair_suurballe(gcfp, x, y)),
         node_pairs,
         use_folds
     )
