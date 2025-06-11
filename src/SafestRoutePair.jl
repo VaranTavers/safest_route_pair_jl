@@ -19,7 +19,7 @@ using .ACO
 import .ACO: ACOSettings, AcoRunSettings, ACO_preprocessing, calc_fitness
 
 using .GA
-import .GA: GeneticSettings, GaRunSettings, genetic, mutate_permute, mutate_random, npoint_crossover_naive, one_point_crossover_naive, crossover_roulette, calc_fitness_paths, calc_fitness_sets
+import .GA: GeneticSettings, GaRunSettings, genetic, mutate_permute, mutate_random, mutate_random_multiple, npoint_crossover_naive, one_point_crossover_naive, crossover_roulette, calc_fitness_paths, calc_fitness_sets
 
 using .NaiveComplex
 import .NaiveComplex: naive_complex, NaiveGreedySettings
@@ -36,7 +36,7 @@ import .TIKZPlotter: graph_to_tikz_net
 
 
 export ACO_preprocessing, calc_fitness, ACOSettings, AcoRunSettings
-export GeneticSettings, GaRunSettings, genetic, mutate_permute, mutate_random, npoint_crossover_naive, one_point_crossover_naive, crossover_roulette, calc_fitness_paths, calc_fitness_sets
+export GeneticSettings, GaRunSettings, genetic, mutate_permute, mutate_random, mutate_random_multiple, npoint_crossover_naive, one_point_crossover_naive, crossover_roulette, calc_fitness_paths, calc_fitness_sets
 export suurballe, SuurballeSettings
 export read_graph_and_failure, read_graph_with_positions
 export graph_to_tikz_net, lat, lon

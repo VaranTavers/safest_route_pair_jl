@@ -110,6 +110,10 @@ function mutate_random(partition)
     partition2
 end
 
+function mutate_random_multiple(partition, gene_mut_prob=0.01)
+    [rand() < gene_mut_prob ? rand(0:2) : x for x in partition]
+end
+
 # Basic crossover that chooses each cromosome randomly from one of the parents
 function npoint_crossover_naive(partition1, partition2)
     [rand((1, 2)) == 1 ? partition1[i] : partition2[i] for i in eachindex(partition1)]
