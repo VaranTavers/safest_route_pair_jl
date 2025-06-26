@@ -1,0 +1,9 @@
+run_mean_comp = true
+run_max_comp = true
+run_chess = true
+run_wilcoxon = true
+number_of_heatmaps_per_graph = 10
+
+folder_name = "results/SMALL_2025-06-14_1/"
+
+result_prefix = "run_result_"

@@ -175,15 +175,7 @@ end
 
 ### MAIN PROGRAM
 
-run_mean_comp = true
-run_max_comp = true
-run_chess = true
-run_wilcoxon = true
-number_of_heatmaps_per_graph = 2
-
-folder_name = "results/2025-05-30_1/"
-
-result_prefix = "run_result_"
+include("comp_config.jl")
 dfs = []
 
 graphs = Set()
@@ -192,6 +184,7 @@ variations = collect(filter(x -> (isdir("$(folder_name)/$(x)") && x != "images")
 variation_nums = [parse(Int, split(x, "_")[1]) for x in variations]
 variations = variations[sortperm(variation_nums)]
 @show variations
+
 
 
 for variation in variations
@@ -207,9 +200,12 @@ for variation in variations
     push!(dfs, dfs_var)
 end
 
+
+
 # Simple mean comparison
 if run_mean_comp
     for graph in graphs
+        @show keys.(dfs)
         comp_df = get_comparison_df(dfs, graph, compare_means)
         CSV.write("$(folder_name)/$(graph)_mean_comp.csv", comp_df)
     end
