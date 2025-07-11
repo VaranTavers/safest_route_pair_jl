@@ -93,41 +93,18 @@ function partition_to_paths(g_indep, partition, fp_edges, source, target)
     vec_from_parents(target, D1.parents, D1.dists[target]), vec_from_parents(target, D2.parents, D2.dists[target])
 end
 
-# Basic mutation that permutates a value in the 0->1->2->0 order on one of the chromosomes
-function mutate_permute(partition)
-    to_mutate = rand(1:length(partition))
-    partition2 = deepcopy(partition)
-    partition2[to_mutate] = (partition[to_mutate] + 1) % 3
+# MUTATION OPERATORS
 
-    partition2
-end
+include("GA/mutation/mutate_one_permute.jl")
+include("GA/mutation/mutate_one_random.jl")
+include("GA/mutation/mutate_n_permute.jl")
+include("GA/mutation/mutate_n_random.jl")
+include("GA/mutation/mutate_multiple_random.jl")
 
-function mutate_random(partition)
-    to_mutate = rand(1:length(partition))
-    partition2 = deepcopy(partition)
-    partition2[to_mutate] = rand(0:2)
+# CROSSOVER OPERATORS
 
-    partition2
-end
-
-function mutate_random_multiple(partition, gene_mut_prob=0.01)
-    [rand() < gene_mut_prob ? rand(0:2) : x for x in partition]
-end
-
-# Basic crossover that chooses each cromosome randomly from one of the parents
-function npoint_crossover_naive(partition1, partition2)
-    [rand((1, 2)) == 1 ? partition1[i] : partition2[i] for i in eachindex(partition1)]
-end
-
-function one_point_crossover_naive(partition1, partition2)
-    point = rand(1:length(partition1))
-
-    res = deepcopy(partition1[1:point])
-
-    append!(res, partition2[point+1:end])
-
-    res
-end
+include("GA/crossover/n_point_crossover.jl")
+include("GA/crossover/one_point_crossover.jl")
 
 function crossover_roulette(_g, chromosomes, fitness, crossoverAlg)
     rouletteWheel = ones(length(chromosomes))
@@ -141,104 +118,21 @@ function crossover_roulette(_g, chromosomes, fitness, crossoverAlg)
     )
 end
 
-# Checks if any y-s are present in x-s
-function path_intersects(xs, ys)
-    for y in ys
 
-        if findfirst(fst.(xs) .== fst(y) .&& snd.(xs) .== snd(y)) !== nothing ||
-           findfirst(fst.(xs) .== snd(y) .&& snd.(xs) .== fst(y)) !== nothing
-            return true
-        end
-    end
+# FITNESS FUNCTIONS
 
-    false
-end
-
-function calc_availability((path1, path2), fps::Vector{Real}, fp_edges::Vector{Vector{Tuple{Integer,Integer}}})
-    # Transform solution from list of nodes into list of edges (node pairs)
-    path_a = calc_edges_from_nodes(path1)
-    path_b = calc_edges_from_nodes(path2)
-
-
-    only_path_a = 0
-    only_path_b = 0
-    both_paths = 0
-
-    for (prob, vec) in zip(fps, fp_edges)
-        intersects_path_a = path_intersects(path_a, vec)
-        intersects_path_b = path_intersects(path_b, vec)
-        if intersects_path_a && intersects_path_b
-            both_paths += prob
-        elseif intersects_path_a
-            only_path_a += prob
-        elseif intersects_path_b
-            only_path_b += prob
-        end
-    end
-
-
-    res = both_paths + only_path_a * only_path_b
-
-
-    -log(res)
-end
-
-
-function calc_fitness_paths(solution, g_indep, runS::GaRunSettings) # _complex
-
-    paths = partition_to_paths(g_indep, solution, runS.fp_edges, runS.source, runS.target)
-
-
-    if fst(paths) == [] && snd(paths) == []
-        return -20
-    elseif fst(paths) == []
-        return -10
-    elseif snd(paths) == []
-        return -10
-    end
-
-    calc_availability(paths, runS.fps, runS.fp_edges)
-end
+include("GA/fitness/fitness_naive.jl")
+include("GA/fitness/fitness_sets.jl")
 
 
 
+# POPULATION SEEDING
 
-# Alternative fitness function: sum of FP-s from both sets should be maximal
-function calc_fitness_sets(solution, g_indep, runS::GaRunSettings)  #_simple
-
-    paths = partition_to_paths(g_indep, solution, runS.fp_edges, runS.source, runS.target)
-
-
-    if fst(paths) == [] && snd(paths) == []
-        return -20
-    elseif fst(paths) == []
-        return -10
-    elseif snd(paths) == []
-        return -10
-    end
-
-    solution2 = deepcopy(solution)
-
-    if length(runS.fp_depend) === length(runS.fp_edges)
-        edge_comps = runS.fp_depend
-
-        for (i, (sol, comp)) in enumerate(zip(solution, edge_comps))
-            l = length(comp)
-            if l > 1 && sol == 0
-                vals = [solution[j] for j in comp]
-                if all(vals .== 1)
-                    solution2[i] = 1
-                elseif all(vals .== 2)
-                    solution2[i] = 2
-                end
-            end
-        end
-    end
-
-    sum(runS.fps[solution2.!=0])
-end
-
-
+include("GA/population/random_seed.jl")
+include("GA/population/random_seed_only_sets.jl")
+include("GA/population/preset.jl")
+include("GA/population/combiner.jl")
+include("GA/population/geographical.jl")
 
 function genetic(runS::GaRunSettings, gaS::GeneticSettings, chromosomes; logging_file="", use_folds=true, logging_depth="iteration_best")
 

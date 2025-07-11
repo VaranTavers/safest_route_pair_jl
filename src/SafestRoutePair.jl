@@ -19,7 +19,7 @@ using .ACO
 import .ACO: ACOSettings, AcoRunSettings, ACO_preprocessing, calc_fitness
 
 using .GA
-import .GA: GeneticSettings, GaRunSettings, genetic, mutate_permute, mutate_random, mutate_random_multiple, npoint_crossover_naive, one_point_crossover_naive, crossover_roulette, calc_fitness_paths, calc_fitness_sets
+import .GA: GeneticSettings, GaRunSettings, genetic, mutate_n_permute, mutate_n_permute, mutate_one_random, mutate_n_random, mutate_multiple_random, npoint_crossover_naive, one_point_crossover_naive, crossover_roulette, calc_fitness_paths, calc_fitness_sets, combine_seed, geographical_seed, preset_seed, random_seed_only_sets, random_seed
 
 using .NaiveComplex
 import .NaiveComplex: naive_complex, NaiveGreedySettings
@@ -36,10 +36,11 @@ import .TIKZPlotter: graph_to_tikz_net
 
 
 export ACO_preprocessing, calc_fitness, ACOSettings, AcoRunSettings
-export GeneticSettings, GaRunSettings, genetic, mutate_permute, mutate_random, mutate_random_multiple, npoint_crossover_naive, one_point_crossover_naive, crossover_roulette, calc_fitness_paths, calc_fitness_sets
+export GeneticSettings, GaRunSettings, genetic, mutate_n_permute, mutate_n_permute, mutate_one_random, mutate_n_random, mutate_multiple_random, npoint_crossover_naive, one_point_crossover_naive, crossover_roulette, calc_fitness_paths, calc_fitness_sets, combine_seed, geographical_seed, preset_seed, random_seed_only_sets, random_seed
 export suurballe, SuurballeSettings
 export read_graph_and_failure, read_graph_with_positions
 export graph_to_tikz_net, lat, lon
+export calc_availability
 
 
 
@@ -63,6 +64,8 @@ struct GraphWithFPandCFP
     cfps::Vector{Real}
     cfp_edges::Vector{Vector{Tuple{Integer,Integer}}}
 end
+
+export GraphWithFPandCFP
 
 fst((x, _)) = x
 snd((_, y)) = y

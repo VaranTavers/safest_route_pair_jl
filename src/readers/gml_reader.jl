@@ -65,8 +65,8 @@ function parseGMLDict(f; depth=0, log=false)
         if !startswith(row, repeat('\t', depth)) && log
             println("Bad indentation on line: $(row)")
         end
-        if !isempty(row)
-            parts = split(strip(row), ' ')
+        if !isempty(row) && !isempty(strip(row))
+            parts = split(strip(row), ' ', limit=2)
             propName = parts[1]
             if propName in keys(ret) && !(ret[propName] isa AbstractVector)
                 ret[propName] = [ret[propName]]
@@ -175,11 +175,11 @@ function create_edge(edge_dict, i=1)
     )
 end
 
-function read_graph_with_positions(file)
+function read_graph_with_positions(file; log=false)
     nodes = []
     edges = []
     open(file) do f
-        dict = parseGMLDict(f; log=true)["graph"]
+        dict = parseGMLDict(f; log=log)["graph"]
         for node in dict["node"]
             push!(nodes, create_node(node))
         end
@@ -187,6 +187,8 @@ function read_graph_with_positions(file)
             push!(edges, create_edge(edge, i))
         end
     end
+
+    sort!(nodes, lt=(x, y) -> x.id < y.id)
 
     nodes, edges
 end
